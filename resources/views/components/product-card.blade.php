@@ -30,9 +30,10 @@
         <div class="flex justify-between items-center">
             <span class="text-pink-500 font-bold">${{ number_format($price, 2) }}</span>
             <div class="flex space-x-2">
-                <button class="bg-white text-pink-500 p-2 rounded-full hover:bg-pink-500 hover:text-white transition">
-                    <i class="fas fa-heart"></i>
-                </button>
+                <!---product details-->
+                <x-icon name="fas fa-info-circle" href="{{ route('product-overview') }}"></x-icon>              
+                   
+              <x-icon href="" name="fas fa-heart"></x-icon>               
             <x-cart-button></x-cart-button>
             </div>
         </div>
