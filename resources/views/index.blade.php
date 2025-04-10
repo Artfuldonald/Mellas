@@ -1,9 +1,9 @@
+{{-- resources/views/index.blade.php --}}
 <x-app-layout>
-   
-   <x-hero-section></x-hero-section>
-
-   <x-category-section></x-category-section>
-
-  <x-featured-product></x-featured-product>
+  <x-hero-section />
+  <x-category-section /> {{-- Pass $categories if fetched --}}
+  
+  {{-- Pass the fetched products to the featured product component --}}
+  <x-featured-product :products="$featuredProducts" /> 
 
 </x-app-layout>

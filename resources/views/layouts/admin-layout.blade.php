@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', 'Admin Dashboard') }}</title>
+    <title>MELLA'S ADMIN DASHBOARD</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,36 +14,28 @@
 
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-        
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="font-sans antialiased h-full bg-background text-foreground">
-    <div x-data="{ 
-        darkMode: localStorage.getItem('darkMode') === 'true',
-        toggleDarkMode() {
-            this.darkMode = !this.darkMode;
-            localStorage.setItem('darkMode', this.darkMode);
-            document.documentElement.classList.toggle('dark', this.darkMode);
-        }
-    }" 
-    x-init="$watch('darkMode', val => document.documentElement.classList.toggle('dark', val)); 
-    document.documentElement.classList.toggle('dark', darkMode)"
-    class="min-h-screen flex">
+<body class="font-sans antialiased h-full bg-gray-100"> {{-- Example light background --}}
+   
+    {{-- Main Flex Container --}}
+    <div class="flex min-h-screen"> {{-- Ensure flex and min-h-screen --}}
 
-        <!-- Sidebar (Always Present) -->
-        <x-admin-sidebar />
+        <!-- Sidebar -->
+        <x-admin-sidebar /> 
 
-        <div class="flex-1">
-            <!-- Top Navigation (Always Present) -->
-            <x-admin-topnav />
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col">
+            <x-admin-topnav /> 
+            <main class="flex-1 container mx-auto p-6 max-w-7xl">
+                 {{ $slot }}
+            </main>
+        </div> {{-- End Main Content Area --}}
 
-            <div class="container mx-auto p-6 max-w-7xl">
-                <main class="w-full">
-                    {{ $slot }}
-                </main>
-            </div>
-        </div>
-    </div>
+    </div> {{-- End Main Flex Container --}}
+
+    @stack('scripts')
 </body>
 </html>
