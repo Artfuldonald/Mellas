@@ -12,10 +12,21 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('category_product', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('category_id')->constrained()->onDelete('cascade');
-            $table->foreignId('product_id')->constrained()->onDelete('cascade');
-            $table->timestamps();
+            // Foreign key for Category
+            $table->foreignId('category_id')
+                  ->constrained('categories') // Link to categories table
+                  ->onDelete('cascade'); // If category deleted, remove link
+
+            // Foreign key for Product
+            $table->foreignId('product_id')
+                  ->constrained('products') // Link to products table
+                  ->onDelete('cascade'); // If product deleted, remove link
+
+            // --- IMPORTANT: Composite Primary Key ---
+            // This prevents adding the same product to the same category twice
+            // and also acts as an efficient index for lookups.
+            $table->primary(['category_id', 'product_id']);
+            
         });
     }
 

@@ -13,12 +13,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Scripts -->
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])   
 </head>
-<body class="font-sans antialiased h-full bg-gray-100"> {{-- Example light background --}}
+<body class="font-sans antialiased h-full bg-dark-500" 
+    data-current-route="{{ Route::currentRouteName() ?? '' }}"> 
    
     {{-- Main Flex Container --}}
     <div class="flex min-h-screen"> {{-- Ensure flex and min-h-screen --}}
@@ -35,7 +33,7 @@
         </div> {{-- End Main Content Area --}}
 
     </div> {{-- End Main Flex Container --}}
-
-    @stack('scripts')
+    
+    @stack('scripts')    
 </body>
 </html>

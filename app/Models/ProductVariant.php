@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class ProductVariant extends Model
 {
@@ -23,5 +24,10 @@ class ProductVariant extends Model
     public function attributeValues()
     {
         return $this->belongsToMany(AttributeValue::class, 'attribute_value_product_variant');
+    }
+
+    public function stockAdjustments(): MorphMany
+    {
+        return $this->morphMany(StockAdjustment::class, 'adjustable');
     }
 }

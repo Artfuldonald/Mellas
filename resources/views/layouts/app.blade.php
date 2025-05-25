@@ -1,33 +1,338 @@
+{{-- resources/views/layouts/app.blade.php --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="csrf-token" content="{{ csrf_token() }}">        
+        <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>Melly's - Your One-Stop Shop</title>
+        <title>{{ $title ?? config('app.name', 'Mella\'s Connect') }}</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+        <!-- Styles & Scripts (Using Vite) -->
+        @vite(['resources/css/app.css', 'resources/js/app.js']) {{-- Ensure Alpine.js is part of your app.js build --}}
 
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @stack('styles')
+        <style>
+            .custom-scrollbar-mobile::-webkit-scrollbar { width: 5px; }
+            .custom-scrollbar-mobile::-webkit-scrollbar-track { background: #f9fafb; /* gray-50 */ border-radius: 10px; }
+            .custom-scrollbar-mobile::-webkit-scrollbar-thumb { background: #d1d5db; /* gray-300 */ border-radius: 10px; }
+            .custom-scrollbar-mobile::-webkit-scrollbar-thumb:hover { background: #9ca3af; /* gray-500 */ }
+            [x-cloak] { display: none !important; }
+        </style>
     </head>
-    <body class="font-sans antialiased text-gray-800 bg-white">
-        <div class="min-h-screen">
-            
-            <x-header></x-header>
+    <body class="font-sans antialiased text-gray-800 bg-gray-50">
+
+        {{-- Data attribute for JS to know current route (used by sidebar active states if any) --}}
+        <div class="min-h-screen flex flex-col" data-current-route="{{ Route::currentRouteName() ?? '' }}">
+
+            {{-- Header Component --}}
+            <x-header />
 
             <!-- Page Content -->
-            <main>
+            <main class="flex-grow">
+                {{-- The $slot will contain the specific page's layout (e.g., 3 columns for homepage) --}}
                 {{ $slot }}
             </main>
 
-            <x-footer></x-footer>
-        </div>
+            {{-- Footer Component --}}
+            <x-footer />
+
+            {{-- ***** "ALL CATEGORIES" OFF-CANVAS MENU (Amazon Style) ***** --}}
+            <div id="allCategoriesOffcanvasMenu"
+                 class="fixed inset-0 z-50 flex" {{-- Removed initial transform, Alpine handles it --}}
+                 x-data="amazonCategorySidebar({
+                    allCategories: {{ Js::from(
+                        // Map your $navCategories (from View Composer) to the structure expected by amazonCategorySidebar
+                        // This structure should be an array of L1 category objects.
+                        // Each L1 object should have an 'id', 'name', 'slug', 'isLinkOnly' (boolean),
+                        // and a 'children' array for L2.
+                        // Each L2 object should have 'id', 'name', 'slug', 'isLinkOnly',
+                        // and a 'children' array for L3.
+                        // L3 objects just need 'id', 'name', 'slug', and 'isLinkOnly' (true).
+                        ($navCategories ?? collect())->map(function ($l1Category) {
+                            return [
+                                'id' => $l1Category->id,
+                                'name' => $l1Category->name,
+                                'slug' => $l1Category->slug,
+                                'isLinkOnly' => $l1Category->children->isEmpty(),
+                                'children' => $l1Category->children->map(function ($l2Category) {
+                                    return [
+                                        'id' => $l2Category->id,
+                                        'name' => $l2Category->name,
+                                        'slug' => $l2Category->slug,
+                                        'isLinkOnly' => $l2Category->children->isEmpty(),
+                                        'children' => $l2Category->children->map(fn($l3Category) => [
+                                            'id' => $l3Category->id,
+                                            'name' => $l3Category->name,
+                                            'slug' => $l3Category->slug,
+                                            'isLinkOnly' => true // L3 are always direct links
+                                        ])->values()->all() // Ensure L3 children is an array
+                                    ];
+                                })->values()->all() // Ensure L2 children is an array
+                            ];
+                        })->values()->all() // Ensure top level is an array
+                    ) }}
+                 })"
+                 x-init="
+                    console.log('Alpine Initialized for All Categories Menu.');
+                    // console.log('Processed allCategories in Alpine:', JSON.parse(JSON.stringify(allCategoriesData))); // Use allCategoriesData
+                 "
+                 @open-all-categories-menu.window="open()"
+                 @keydown.escape.window="if(isOpen) close();"
+                 x-show="isOpen"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 x-cloak
+                 style="display: none;"
+                 role="dialog" aria-modal="true" aria-labelledby="all-categories-title"
+            >
+                {{-- Overlay --}}
+                <div class="fixed inset-0 bg-black/50" @click="close()" aria-hidden="true" x-show="isOpen"></div>
+
+                {{-- Menu Panel --}}
+                <div class="fixed left-0 top-0 h-full w-80 max-w-[85vw] sm:max-w-xs bg-white shadow-lg flex flex-col
+                            transform transition-transform duration-300 ease-in-out"
+                     :class="isOpen ? 'translate-x-0' : '-translate-x-full'"
+                     @click.outside="close()" {{-- Close if click is outside this panel --}}
+                >
+                    {{-- Header of the Off-Canvas Menu --}}
+                    <div class="bg-pink-600 text-white p-4 flex items-center justify-between flex-shrink-0 sticky top-0 z-10">
+                        <div class="flex items-center">
+                            <button x-show="history.length > 0" @click="navigateBack()"
+                                    class="mr-2 rounded-full p-1 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-white">
+                                <x-heroicon-o-arrow-left class="h-5 w-5" />
+                                <span class="sr-only">Back</span>
+                            </button>
+                            <span id="all-categories-title" class="text-lg font-bold truncate" x-text="currentTitle"></span>
+                        </div>
+                        <button @click="close()"
+                                class="rounded-full p-1 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-white">
+                            <x-heroicon-o-x-mark class="h-6 w-6" />
+                            <span class="sr-only">Close sidebar</span>
+                        </button>
+                    </div>
+                    {{-- Parent category title (shown in subcategory views) --}}
+                    <div x-show="parentTitleStack.length > 0 && currentView !== 'main'"
+                         class="px-4 pt-2 pb-1 text-xs text-gray-500 bg-gray-50 border-b"
+                         x-text="parentTitleStack[parentTitleStack.length - 1]">
+                    </div>
+
+                    {{-- Content - Main Categories or Subcategories --}}
+                    <div class="overflow-y-auto flex-grow custom-scrollbar-mobile p-2">
+                        {{-- Level 1 Categories (Main Menu) --}}
+                        <ul x-show="currentView === 'main'" class="divide-y divide-gray-100">
+                            <li x-show="allCategoriesData.length === 0" class="p-3 text-sm text-gray-500">
+                                No categories available.
+                            </li>
+                            <template x-for="categoryL1 in allCategoriesData" :key="categoryL1.id">
+                                <li class="hover:bg-pink-50">
+                                    <div @click="handleClick(categoryL1, 1)"
+                                         class="flex items-center justify-between p-3 text-sm text-gray-700 cursor-pointer">
+                                        <span x-text="categoryL1.name"></span>
+                                        <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" x-show="!categoryL1.isLinkOnly" />
+                                    </div>
+                                </li>
+                            </template>
+                        </ul>
+
+                        {{-- Level 2 Categories --}}
+                        <ul x-show="currentView === 'level2'" class="divide-y divide-gray-100">
+                            <template x-for="categoryL2 in currentItems" :key="categoryL2.id">
+                                <li class="hover:bg-pink-50">
+                                     <div @click="handleClick(categoryL2, 2)"
+                                         class="flex items-center justify-between p-3 text-sm text-gray-700 cursor-pointer">
+                                        <span x-text="categoryL2.name"></span>
+                                        <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" x-show="!categoryL2.isLinkOnly" />
+                                    </div>
+                                </li>
+                            </template>
+                        </ul>
+
+                         {{-- Level 3 Categories --}}
+                        <ul x-show="currentView === 'level3'" class="divide-y divide-gray-100">
+                            <template x-for="categoryL3 in currentItems" :key="categoryL3.id">
+                                <li class="hover:bg-pink-50">
+                                    {{-- L3 items are always links --}}
+                                    <a :href="'{{ url('/products') }}?category=' + categoryL3.slug"
+                                       class="flex items-center justify-between p-3 text-sm text-gray-700">
+                                        <span x-text="categoryL3.name"></span>
+                                    </a>
+                                </li>
+                            </template>
+                        </ul>
+                        <p x-show="currentView !== 'main' && currentItems.length === 0" class="p-3 text-sm text-gray-500 italic">
+                            No further subcategories.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {{-- ***** END "ALL CATEGORIES" OFF-CANVAS MENU ***** --}}
+
+
+            {{-- ***** MAIN MOBILE NAVIGATION OFF-CANVAS MENU (for Account, Help, etc.) ***** --}}
+            {{-- This remains largely the same as before, triggered by #mainMobileNavToggleBtn --}}
+            <div id="mainMobileOffcanvasMenu"
+                 class="fixed inset-0 z-50 flex justify-end transform translate-x-full transition-transform duration-300 ease-in-out"
+                 x-data="{ open: false }"
+                 @open-main-mobile-nav.window="open = true; document.body.style.overflow = 'hidden';"
+                 @close-main-mobile-nav.window="open = false; document.body.style.overflow = '';"
+                 @keydown.escape.window="if(open){ open = false; document.body.style.overflow = ''; }"
+                 x-show="open" x-cloak style="display: none;"
+                 role="dialog" aria-modal="true" aria-labelledby="main-mobile-nav-title">
+                <div class="fixed inset-0 bg-black/50" @click="open = false; document.body.style.overflow = '';" aria-hidden="true"></div>
+                <div class="relative w-4/5 max-w-xs bg-white h-full shadow-xl flex flex-col overflow-y-auto custom-scrollbar-mobile">
+                    <div class="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
+                        <h2 id="main-mobile-nav-title" class="text-lg font-semibold text-pink-600">Menu</h2>
+                        <button @click="open = false; document.body.style.overflow = '';" class="p-1 text-gray-500 hover:text-pink-600">
+                            <x-heroicon-o-x-mark class="w-6 w-6"/>
+                        </button>
+                    </div>
+                    <nav class="flex-grow p-4 space-y-2">
+                        @guest
+                            <a href="{{ route('login') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign In</a>
+                            <a href="{{ route('register') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Create Account</a>
+                        @else
+                            <a href="{{ Auth::user()->is_admin ? route('admin.dashboard') : route('profile.edit') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">My Account</a>
+                            <form method="POST" action="{{ route('logout') }}" onsubmit="return confirm('Are you sure?');"> @csrf <button type="submit" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign out</button></form>
+                        @endguest
+                        <div class="pt-4 border-t mt-2">
+                            <a href="#" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Help Center</a>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+            {{-- ***** END MAIN MOBILE NAVIGATION OFF-CANVAS MENU ***** --}}
+
+        </div>{{-- End min-h-screen --}}
+
+        @stack('modals')
+        @stack('scripts')
+        {{-- Script to trigger off-canvas menus from header buttons AND define Alpine component --}}
+        <script>
+            // Alpine.js component for the Amazon-style category sidebar
+            // Define it globally so x-data can find it
+            if (typeof window.amazonCategorySidebar === 'undefined') {
+                window.amazonCategorySidebar = function(config) {
+                    return {
+                        isOpen: false,
+                        allCategoriesData: config.allCategories || [], // This will be the structured data from PHP
+                        currentView: 'main',    // 'main', 'l1_id', 'l2_id' (where ID is the parent ID for the current list)
+                        currentTitle: 'Shop By Department',
+                        currentItems: [],       // Items to display in the current list (L1, L2, or L3)
+                        history: [],          // Stack to store {view, title, items} for back navigation
+                        parentTitleStack: [], // To display "Back to [Parent Title]"
+
+                        init() {
+                            this.currentItems = this.allCategoriesData; // Initially show L1 categories
+                            // console.log('Amazon Sidebar Alpine Initialized. All Categories Data:', JSON.parse(JSON.stringify(this.allCategoriesData)));
+                        },
+                        open() {
+                            this.isOpen = true;
+                            document.body.style.overflow = 'hidden';
+                        },
+                        close() {
+                            this.isOpen = false;
+                            document.body.style.overflow = '';
+                            setTimeout(() => { // Reset state after transition
+                                this.currentView = 'main';
+                                this.currentTitle = 'Shop By Department';
+                                this.currentItems = this.allCategoriesData;
+                                this.history = [];
+                                this.parentTitleStack = [];
+                            }, 300);
+                        },
+                        navigateTo(itemClicked, currentLevel) {
+                            // Save current state to history
+                            this.history.push({
+                                view: this.currentView,
+                                title: this.currentTitle,
+                                items: this.currentItems,
+                                parentTitles: [...this.parentTitleStack] // Copy stack
+                            });
+                            this.parentTitleStack.push(this.currentTitle); // Add current title as parent for next view
+
+                            // Set new state
+                            this.currentView = (currentLevel === 1) ? 'level2' : 'level3'; // Generic view state
+                            this.currentTitle = itemClicked.name;
+                            this.currentItems = Object.values(itemClicked.children || {});
+                        },
+                        navigateBack() {
+                            if (this.history.length > 0) {
+                                const previousState = this.history.pop();
+                                this.currentView = previousState.view;
+                                this.currentTitle = previousState.title;
+                                this.currentItems = previousState.items;
+                                this.parentTitleStack = previousState.parentTitles;
+                            }
+                        },
+                        // This method is called when an item is clicked in the list
+                        handleItemClick(item, levelCurrentlyDisplayed) {
+                            const targetUrl = '{{ url("/products") }}?category=' + item.slug;
+                            if (item.isLinkOnly || (item.children && Object.keys(item.children).length === 0)) {
+                                window.location.href = targetUrl; // Navigate if no children or explicitly a link
+                            } else {
+                                // It has children, so navigate to the next level in the sidebar
+                                this.navigateTo(item, levelCurrentlyDisplayed + 1); // Incorrect, navigateTo needs different params
+                                // Corrected call:
+                                this.navigateTo(item.id, item.name); // Pass item ID and name
+                            }
+                        },
+                        // Corrected handleClick for the templates
+                        // item is the category object, currentLevelDisplayed is 1, 2, or 3
+                        handleClick(item, currentLevelDisplayed) {
+                            const targetUrl = '{{ url("/products") }}?category=' + item.slug;
+                            if (item.isLinkOnly || !item.children || Object.keys(item.children).length === 0) {
+                                window.location.href = targetUrl;
+                            } else {
+                                // Save current state to history
+                                this.history.push({
+                                    view: this.currentView,
+                                    title: this.currentTitle,
+                                    items: this.currentItems,
+                                    parentTitles: [...this.parentTitleStack]
+                                });
+                                this.parentTitleStack.push(this.currentTitle);
+
+                                // Set new state based on what level we are going to
+                                if (currentLevelDisplayed === 1) { // Clicked L1, going to L2
+                                    this.currentView = 'level2';
+                                    this.currentItems = Object.values(item.children);
+                                } else if (currentLevelDisplayed === 2) { // Clicked L2, going to L3
+                                    this.currentView = 'level3';
+                                    this.currentItems = Object.values(item.children);
+                                }
+                                this.currentTitle = item.name;
+                            }
+                        }
+                    };
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                const allCategoriesBtn = document.getElementById('allCategoriesMenuToggleBtn');
+                const mainMobileNavBtn = document.getElementById('mainMobileNavToggleBtn');
+
+                if (allCategoriesBtn) {
+                    allCategoriesBtn.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        window.dispatchEvent(new CustomEvent('open-all-categories-menu'));
+                    });
+                }
+                if (mainMobileNavBtn) {
+                    mainMobileNavBtn.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        window.dispatchEvent(new CustomEvent('open-main-mobile-nav'));
+                    });
+                }
+            });
+        </script>
     </body>
 </html>

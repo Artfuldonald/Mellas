@@ -126,7 +126,14 @@ return [
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
+        
+        'webhooks' => [
+        'driver' => 'single', // Or 'daily'
+        'path' => storage_path('logs/webhooks.log'), // Log to a separate file
+        'level' => env('LOG_LEVEL', 'debug'),
+        'replace_placeholders' => true,
+        ],
 
-    ],
+    ],    
 
 ];

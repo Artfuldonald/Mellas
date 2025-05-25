@@ -1,22 +1,21 @@
-<!-- CREATE PRODUCT --> 
-<x-admin-layout title="Create New Category">
-    
-    <div class="py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-         <h1 class="text-2xl font-semibold text-gray-900">Create New Category</h1>
-
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-             <div class="px-4 py-5 sm:px-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">
-                    Category Details
-                </h3>
-            </div>
-            <div class="border-t border-gray-200 px-4 py-5 sm:p-6">
-                <form action="{{ route('admin.categories.store') }}" method="POST" class="space-y-6">
-                    @include('admin.categories._form') {{-- Include the form partial --}}
-                </form>
-            </div>
+<x-admin-layout title="Add Category">
+    <div class="py-8 px-4 sm:px-6 lg:px-8 space-y-6 max-w-4xl mx-auto">
+        <div class="flex items-center justify-between">
+            <h1 class="text-2xl font-semibold text-gray-900">Add New Category</h1>
+            <a href="{{ route('admin.categories.index') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                ← Back to Categories
+            </a>
         </div>
-    </div>
+        @include('admin.partials._session_messages')
 
+        {{-- Form tag points to the store route --}}
+        <form action="{{ route('admin.categories.store') }}" method="POST">
+            {{-- Include the form partial --}}
+            {{-- Pass $category (new instance) and $parentCategories from controller --}}
+            @include('admin.categories._form', [
+                'category' => $category,
+                'parentCategories' => $parentCategories
+            ])
+        </form>
+    </div>
 </x-admin-layout>
-<!-- END CREATE PRODUCT --> 

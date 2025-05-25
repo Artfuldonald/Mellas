@@ -35,4 +35,16 @@ return [
         ],
     ],
 
+    'mtn_momo' => [
+        'environment' => env('MTN_MOMO_ENVIRONMENT', 'sandbox'),
+        'currency' => env('MTN_MOMO_CURRENCY', 'GHS'),
+        'callback_url' => env('MTN_MOMO_CALLBACK_URL'),
+        'base_uri' => env('MTN_MOMO_BASE_URI'), 
+
+        // Credentials
+        'api_user_id' => env('MTN_MOMO_API_USER_ID'),
+        'api_key' => env('MTN_MOMO_API_KEY'),
+        'subscription_key' => env('MTN_MOMO_SUBSCRIPTION_KEY'), 
+    ],
+
 ];

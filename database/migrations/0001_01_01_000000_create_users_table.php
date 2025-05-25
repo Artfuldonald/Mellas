@@ -17,6 +17,9 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->boolean('is_admin')->default(false);
+            // Add an index for faster lookups of admins/customers
+            $table->index('is_admin');
             $table->rememberToken();
             $table->timestamps();
         });

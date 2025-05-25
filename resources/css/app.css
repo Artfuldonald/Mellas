@@ -7,29 +7,35 @@
 
 /* --- Desktop Collapsed State (.sidebar-collapsed applied via JS) --- */
 /* Only applies on md screens and larger when class is present */
-@media (min-width: 768px) { /* Corresponds to Tailwind's 'md' breakpoint */
+@media (min-width: 768px) {
+
+    /* Corresponds to Tailwind's 'md' breakpoint */
     .sidebar-collapsed .sidebar-nav-link,
     .sidebar-collapsed .sidebar-nav-dropdown-trigger {
-       @apply justify-center;
+        @apply justify-center;
     }
 
     .sidebar-collapsed .sidebar-icon {
-       @apply mr-0;
+        @apply mr-0;
     }
 
     .sidebar-collapsed .sidebar-text,
     .sidebar-collapsed .sidebar-arrow {
-       @apply hidden;
+        @apply hidden;
     }
 
     /* Ensure dropdown content is hidden when sidebar collapses */
     .sidebar-collapsed .sidebar-dropdown-content {
-       max-height: 0 !important;
-       overflow: hidden !important;
-       margin-top: 0 !important; /* Ensure no top margin */
-       padding-top: 0 !important; /* Ensure no top padding */
-       padding-bottom: 0 !important; /* Ensure no bottom padding */
-       border-top-width: 0 !important; /* Ensure no top border */
+        max-height: 0 !important;
+        overflow: hidden !important;
+        margin-top: 0 !important;
+        /* Ensure no top margin */
+        padding-top: 0 !important;
+        /* Ensure no top padding */
+        padding-bottom: 0 !important;
+        /* Ensure no bottom padding */
+        border-top-width: 0 !important;
+        /* Ensure no top border */
     }
 }
 
@@ -38,18 +44,24 @@
 /* Base mobile state is hidden off-screen via transform in <aside> classes */
 /* Styles when mobile sidebar is open */
 #adminSidebar.mobile-open {
-    @apply transform translate-x-0; /* Slide in */
+    @apply transform translate-x-0;
+    /* Slide in */
 }
 
 /* Default state for nav items (open appearance, applies mobile too unless overridden by desktop rules) */
-.sidebar-nav-link, .sidebar-nav-dropdown-trigger {
+.sidebar-nav-link,
+.sidebar-nav-dropdown-trigger {
     @apply justify-start;
 }
+
 .sidebar-icon {
     @apply mr-3;
 }
-.sidebar-text, .sidebar-arrow {
-    @apply block; /* Default visible */
+
+.sidebar-text,
+.sidebar-arrow {
+    @apply block;
+    /* Default visible */
 }
 
 
@@ -68,9 +80,11 @@
 }
 
 .sidebar-dropdown-content.is-open {
-     /* Set max-height to allow content to show - adjust if needed */
-    max-height: 500px; /* Example max height */
+    /* Set max-height to allow content to show - adjust if needed */
+    max-height: 500px;
+    /* Example max height */
 }
+
 /* --- Dropdown Open State (applies mobile and desktop) --- */
 .sidebar-nav-dropdown-trigger .sidebar-arrow.is-open {
     @apply rotate-90;
@@ -79,15 +93,17 @@
 .sidebar-dropdown-content {
     /* Smooth transition for max-height */
     max-height: 0;
-    overflow: hidden; /* Crucial for max-height */
+    overflow: hidden;
+    /* Crucial for max-height */
     transition: max-height 0.3s ease-in-out;
-    @apply pl-9; /* Default padding */
+    @apply pl-9;
+    /* Default padding */
 }
 
 /* When JS adds 'is-open', CSS allows max-height to expand */
 .sidebar-dropdown-content.is-open {
-     /* max-height is set dynamically by JS to scrollHeight */
-     /* We don't need a fixed max-height here anymore */
+    /* max-height is set dynamically by JS to scrollHeight */
+    /* We don't need a fixed max-height here anymore */
 }
 
 /* Ensure dropdown content is hidden when sidebar collapses (Desktop) */

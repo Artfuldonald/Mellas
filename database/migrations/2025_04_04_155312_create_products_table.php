@@ -19,8 +19,8 @@ return new class extends Migration
             $table->decimal('price', 10, 2);
             $table->decimal('compare_at_price', 10, 2)->nullable();
             $table->decimal('cost_price', 10, 2)->nullable();
-            $table->string('sku')->unique();            
-            $table->integer('quantity')->default(0);
+            $table->string('sku')->unique()->nullable();           
+            $table->integer('quantity')->default(0)->nullable();
             $table->boolean('is_active')->default(true);
             $table->boolean('is_featured')->default(false);
             $table->string('meta_title')->nullable();

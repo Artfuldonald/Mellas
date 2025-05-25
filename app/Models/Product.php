@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany; 
+
 
 class Product extends Model
 {
@@ -56,8 +58,13 @@ class Product extends Model
     }
 
     public function videos()
-{
-    return $this->hasMany(ProductVideo::class);
-}
+    {
+        return $this->hasMany(ProductVideo::class);
+    }
+
+    public function stockAdjustments(): MorphMany
+    {
+        return $this->morphMany(StockAdjustment::class, 'adjustable');
+    }
 }
    

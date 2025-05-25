@@ -1,23 +1,21 @@
-<!-- EDIT PRODUCT --> 
-<x-admin-layout>
-    
-    <div class="py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-         <h1 class="text-2xl font-semibold text-gray-900">Edit Category: <span class="text-indigo-600">{{ $category->name }}</span></h1>
-
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-             <div class="px-4 py-5 sm:px-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">
-                    Category Details
-                </h3>
-            </div>
-            <div class="border-t border-gray-200 px-4 py-5 sm:p-6">
-                <form action="{{ route('admin.categories.update', $category->id) }}" method="POST" class="space-y-6">
-                    @method('PUT') {{-- Method spoofing for UPDATE --}}
-                    @include('admin.categories.form', ['category' => $category]) {{-- Include the form partial, passing the category --}}
-                </form>
-            </div>
+<x-admin-layout :title="'Edit Category: ' . $category->name">
+    <div class="py-8 px-4 sm:px-6 lg:px-8 space-y-6 max-w-4xl mx-auto">
+        <div class="flex items-center justify-between">
+            <h1 class="text-2xl font-semibold text-gray-900">Edit Category</h1>
+            <a href="{{ route('admin.categories.index') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                ← Back to Categories
+            </a>
         </div>
-    </div>
+        @include('admin.partials._session_messages')
 
+         {{-- Form tag points to the update route --}}
+        <form action="{{ route('admin.categories.update', $category) }}" method="POST">
+            {{-- Include the form partial --}}
+             {{-- Pass existing $category and $parentCategories from controller --}}
+            @include('admin.categories._form', [
+                'category' => $category,
+                'parentCategories' => $parentCategories
+            ])
+        </form>
+    </div>
 </x-admin-layout>
-<!-- EDIT PRODUCT END--> 
