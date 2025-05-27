@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product; 
-use App\Models\Category; 
+use App\Models\Product;
+use App\Models\Category;
 use Illuminate\Support\Js;
 use Illuminate\Http\Request;
 
@@ -17,108 +17,131 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        // Start query for active products
-        $query = Product::where('is_active', true);
+        $query = Product::where('is_active', true)
+                        ->with([
+                            'images' => fn($q) => $q->orderBy('position')->limit(1),
+                            // No need to load 'reviews' collection here, just counts/avg
+                        ])
+                        ->withCount([
+                            'variants',
+                            'approvedReviews as reviews_count' // Alias to reviews_count for card
+                        ])
+                        ->withAvg('approvedReviews as reviews_avg_rating', 'rating'); // Alias to reviews_avg_rating
 
-        // --- Eager Loading ---
-        // Load the first image for each product for the listing view
-        // Also load variant count to potentially adjust display on product card
-        $query->with(['images' => fn($q) => $q->orderBy('position')->limit(1)])
-              ->withCount('variants');
+        $activeCategory = null;
 
-        // --- Filtering (Example: By Category) ---
         if ($request->filled('category')) {
             $categorySlug = $request->input('category');
-            $query->whereHas('categories', function ($q) use ($categorySlug) {
-                $q->where('slug', $categorySlug); // Filter by category slug
+            $activeCategory = Category::where('slug', $categorySlug)->where('is_active', true)->firstOrFail();
+            $query->whereHas('categories', function ($q) use ($activeCategory) {
+                $q->where('categories.id', $activeCategory->id);
             });
         }
 
-        // --- Sorting (Example: Add more options later) ---
-        // Default to newest first, maybe allow sorting by price, name etc.
-        $query->latest(); // Or orderBy('name', 'asc'), orderBy('price', 'asc/desc')
+        $sortOrder = $request->input('sort', 'latest');
+        switch ($sortOrder) {
+            case 'price_asc':
+                $query->orderBy('price', 'asc');
+                break;
+            case 'price_desc':
+                $query->orderBy('price', 'desc');
+                break;
+            case 'name_asc':
+                $query->orderBy('name', 'asc');
+                break;
+            case 'name_desc':
+                $query->orderBy('name', 'desc');
+                break;
+            // Add sorting by rating if desired
+            case 'rating_desc':
+                // This sorts by the average rating. Requires the withAvg above or a subquery.
+                // If using withAvg, you can orderBy the alias.
+                $query->orderBy('reviews_avg_rating', 'desc');
+                break;
+            case 'latest':
+            default:
+                $query->latest('created_at');
+                break;
+        }
 
-        // --- Pagination ---
-        $productsPerPage = 12; // Number of products per page for the grid
-        $products = $query->paginate($productsPerPage)->withQueryString(); // Keep filters in pagination links
+        $productsPerPage = 12;
+        $products = $query->paginate($productsPerPage)->withQueryString();
 
-        // --- Fetch Categories for Filtering UI ---
-        // Fetch all for now, assuming not too many. Could filter by active later if needed.
-        $categories = Category::orderBy('name')->get(['name', 'slug']); // Get only needed columns
+        $filterCategories = Category::where('is_active', true)->orderBy('name')->get(['name', 'slug']);
 
-        // Return the view, passing the products and categories
-        return view('products.index', compact('products', 'categories'));
+        return view('products.index', compact('products', 'filterCategories', 'activeCategory', 'sortOrder'));
     }
 
     /**
      * Display the specified product.
-     * (We'll implement this later for the product detail page)
      *
-     * @param  \App\Models\Product  $product
+     * @param  Product $product
      * @return \Illuminate\View\View
      */
     public function show(Product $product)
     {
-        // 1. Check if the product is active
         if (!$product->is_active) {
-            // Optional: Redirect to product listing or show 404 if inactive products shouldn't be accessed directly
-             abort(404);
-            // return redirect()->route('products.index')->with('error', 'Product not available.');
+            abort(404);
         }
 
-        // 2. Eager load all necessary relationships for the detail page
         $product->load([
-            'categories:id,name,slug', // Load categories (select specific columns)
-            'images' => fn($q) => $q->orderBy('position'), // Load all images, ordered
-            'videos' => fn($q) => $q->orderBy('position'), // Load all videos, ordered (if you display them)
-            // Crucial for variant selection:
+            'categories:id,name,slug',
+            'images' => fn($q) => $q->orderBy('position'),
+            'videos' => fn($q) => $q->orderBy('position'),
             'variants' => function ($query) {
-                // Load variants that are active (optional, if you have is_active on variants)
-                // $query->where('is_active', true);
-                // Load the specific attribute values associated *with each variant*
                 $query->with(['attributeValues' => function($q) {
-                    // For each attribute value, also load its parent attribute name/id
-                    $q->select('attribute_values.id', 'attribute_values.value', 'attribute_values.attribute_id') // Select only needed value columns
-                      ->with('attribute:id,name'); // Eager load the parent Attribute model (select needed columns)
+                    $q->select('attribute_values.id', 'attribute_values.value', 'attribute_values.attribute_id')
+                      ->with('attribute:id,name');
                 }]);
             },
-            // Load the main attributes *assigned to the product* (e.g., "Color", "Size")
-            // This helps build the selection UI even before variants are loaded by JS
-            'attributes' => fn($q) => $q->with('values:id,value,attribute_id')->orderBy('name') // Load attributes with their possible values
+            'attributes' => fn($q) => $q->with('values:id,value,attribute_id')->orderBy('name'),
+            'approvedReviews.user:id,name' // Load approved reviews and the user (name only) who wrote them
         ]);
+        // The accessors 'average_rating' and 'approved_reviews_count' will be available on the $product model.
 
-        // 3. Prepare data for potential Alpine.js variant selection component
-        // Group variants by their attribute value combinations for easy lookup in JS
         $variantData = $product->variants->mapWithKeys(function ($variant) {
-            // Create a unique key based on sorted attribute value IDs (e.g., "10-25")
             $key = $variant->attributeValues->sortBy('id')->pluck('id')->join('-');
             return [$key => [
                 'id' => $variant->id,
                 'sku' => $variant->sku,
-                'price' => (float) $variant->price, // Ensure float
+                'price' => (float) $variant->price,
                 'quantity' => (int) $variant->quantity,
                 'is_active' => (bool) $variant->is_active,
-                // Add image ID if variants can have unique images later
-                // 'image_id' => $variant->image_id,
             ]];
         });
 
-        // Group available attribute values by the attribute ID
         $optionsData = $product->attributes->mapWithKeys(function ($attribute) {
             return [$attribute->id => [
                 'name' => $attribute->name,
                 'values' => $attribute->values->map(function($value) {
                     return ['id' => $value->id, 'name' => $value->value];
-                })->toArray() // Convert collection to array
+                })->toArray()
             ]];
         });
 
+        // Fetch related products (example logic, adjust as needed)
+        $relatedProducts = collect();
+        if ($product->categories->isNotEmpty()) {
+            $relatedProducts = Product::where('is_active', true)
+                ->where('id', '!=', $product->id) // Exclude current product
+                ->whereHas('categories', function ($q) use ($product) {
+                    $q->whereIn('categories.id', $product->categories->pluck('id'));
+                })
+                ->with(['images' => fn($q) => $q->orderBy('position')->limit(1)])
+                ->withCount('approvedReviews as reviews_count')
+                ->withAvg('approvedReviews as reviews_avg_rating', 'rating')
+                ->inRandomOrder()
+                ->take(4) // Number of related products
+                ->get();
+        }
 
-        // 4. Pass data to the view
+
         return view('products.show', [
             'product' => $product,
-            'variantDataForJs' => Js::from($variantData), // Pass variant lookup data as JSON
-            'optionsDataForJs' => Js::from($optionsData), // Pass attribute options data as JSON
+            'variantDataForJs' => Js::from($variantData),
+            'optionsDataForJs' => Js::from($optionsData),
+            'relatedProducts' => $relatedProducts, // Pass related products to the view
+            // 'averageRating' and 'approvedReviewsCount' are now accessors on $product
         ]);
     }
 }

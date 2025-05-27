@@ -76,4 +76,9 @@ class User extends Authenticatable
     {
         $query->where('is_admin', false);
     }
+
+    public function reviews(): HasMany // <-- Add this
+    {
+        return $this->hasMany(Review::class);
+    }
 }

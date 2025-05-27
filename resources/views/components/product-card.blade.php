@@ -3,148 +3,132 @@
 ])
 
 @php
-    // Derive necessary properties from the product object
-    $id = $product->id;
     $name = $product->name ?? 'Product Name';
-    // Get the first image URL or a placeholder
-    $imageUrl = $product->images->first()?->path ? Storage::url($product->images->first()->path) : asset('path/to/your/placeholder.jpg'); // Use placeholder
+    $imageUrl = $product->images->first()?->image_url ?? asset('images/placeholder.png'); // Assumes image_url accessor
     $altText = $product->images->first()?->alt ?? $name;
-    $price = $product->price ?? 0;
-    $compareAtPrice = $product->compare_at_price ?? null;
-    $productUrl = route('products.show', $product); // Assumes route model binding works (slug or ID)
-    $rating = $product->rating ?? 0; // Assuming you have a rating property/accessor later
-    $reviewCount = $product->reviews_count ?? 0; // Assuming you have a review count later
+    $price = (float)($product->price ?? 0);
+    $compareAtPrice = (float)($product->compare_at_price ?? 0);
+    $productUrl = route('products.show', $product->slug ?? $product->id);
 
-    // Unique modal name
-    $modalName = 'product-details-' . $id;
+    $reviewCount = $product->reviews_count ?? 0; // Assumes 'reviews_count' loaded by withCount('reviews')
+    $rating = $product->reviews_avg_rating ?? ($product->rating ?? 0); // Assumes 'reviews_avg_rating' or 'rating'
+
+    // Stock and Availability
+    // This is a simplified stock check. Adapt if you have variants with individual stock.
+    $isAvailable = ($product->quantity ?? 0) > 0 || ($product->variants_count > 0); // If variants exist, assume PDP handles stock
+    if ($product->variants_count == 0 && property_exists($product, 'quantity')) {
+        $isAvailable = $product->quantity > 0;
+    }
+    $currentStock = $product->quantity ?? 0; // For simple products
+
+    $discountPercentage = 0;
+    if ($compareAtPrice > 0 && $compareAtPrice > $price) {
+        $discountPercentage = round((($compareAtPrice - $price) / $compareAtPrice) * 100);
+    }
+
+    // "Items Left" Logic (Example)
+    $lowStockThreshold = 10; // Show "items left" if stock is this or less
+    $itemsLeftText = null;
+    $stockPercentage = null;
+    if ($isAvailable && $product->variants_count == 0 && $currentStock <= $lowStockThreshold && $currentStock > 0) {
+        $itemsLeftText = $currentStock . ' ' . Str::plural('item', $currentStock) . ' left';
+        // You could also calculate a percentage for a progress bar if you have an "initial stock" concept
+        // For simplicity, we'll just show text. For a bar:
+        // $stockPercentage = ($currentStock / $lowStockThreshold) * 100;
+    }
+
+    // Placeholder for special badges (like "Pay on Delivery" or "Express Shipping")
+    $showPayOnDeliveryBadge = false; // Set to true based on product data if needed
+    $showExpressShippingBadge = false; // Set to true based on product data if needed
+
 @endphp
 
-{{-- Use the Panel component, applying group for hover effects --}}
-<x-panel class="flex flex-col group"> {{-- Added flex flex-col --}}
-    <div class="relative aspect-square w-full overflow-hidden bg-gray-100"> {{-- Ensure consistent aspect ratio & background --}}
-        <a href="{{ $productUrl }}">
-            <img src="{{ $imageUrl }}" alt="{{ $altText }}"
-                 class="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-300 ease-in-out"> {{-- Zoom effect --}}
+<div class="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col overflow-hidden group">
+    {{-- Image Section --}}
+    <div class="relative">
+        <a href="{{ $productUrl }}" class="block aspect-w-1 aspect-h-1 bg-pink-50"> {{-- aspect-w-1 aspect-h-1 for consistent image box --}}
+            <img src="{{ $imageUrl }}" alt="{{ $altText }}" class="w-full h-full object-contain sm:object-cover transition-transform duration-300 group-hover:scale-105">
+            {{-- Use object-contain if images vary a lot, object-cover if they are more uniform --}}
         </a>
-        {{-- Overlay Actions (Optional - Appear on Hover) --}}
-        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity duration-300 flex items-center justify-center space-x-3">
-            {{-- Details Button --}}
-            <button @click="$dispatch('open-modal', '{{ $modalName }}')"
-                    class="p-2 rounded-full bg-white text-gray-600 hover:bg-pink-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out scale-90 group-hover:scale-100"
-                    title="Quick View">
-                <x-heroicon-o-eye class="w-5 h-5"/>
-                <span class="sr-only">Product Details</span>
-            </button>
-            {{-- Wishlist Button --}}
-            <button class="p-2 rounded-full bg-white text-gray-600 hover:bg-pink-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out delay-75 scale-90 group-hover:scale-100"
-                    title="Add to Wishlist">
-                <x-heroicon-o-heart class="w-5 h-5"/>
-                <span class="sr-only">Add to Wishlist</span>
-            </button>
-             {{-- Add to Cart Button --}}
-             {{-- You might want a dedicated cart component here eventually --}}
-             <button class="p-2 rounded-full bg-white text-gray-600 hover:bg-pink-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out delay-150 scale-90 group-hover:scale-100"
-                    title="Add to Cart">
-                <x-heroicon-o-shopping-bag class="w-5 h-5"/>
-                <span class="sr-only">Add to Cart</span>
-             </button>
-        </div>
+
+        {{-- Badges on Image --}}
+        @if($showPayOnDeliveryBadge)
+            <span class="absolute top-2 left-2 bg-green-100 text-green-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm shadow">Pay on Delivery</span>
+        @endif
+
+        {{-- Wishlist Icon --}}
+        <button aria-label="Add to wishlist" class="absolute top-2 right-2 p-1.5 bg-white/80 hover:bg-white rounded-full text-pink-500 hover:text-pink-600 shadow-sm hover:shadow-md transition focus:outline-none focus:ring-2 focus:ring-pink-500">
+            <x-heroicon-o-heart class="w-5 h-5" />
+        </button>
     </div>
-    {{-- Product Info Area --}}
-    <div class="p-4 flex-1 flex flex-col justify-between"> {{-- Allow info to take remaining space --}}
-        <div>
-            {{-- Optional Category Link --}}
-            {{-- <a href="#" class="text-xs text-gray-500 hover:text-pink-600">Category</a> --}}
-            {{-- Product Name --}}
-            <h3 class="mt-1 text-sm font-medium text-gray-800 group-hover:text-pink-700 transition-colors duration-200">
-                <a href="{{ $productUrl }}">
-                    <span aria-hidden="true" class="absolute inset-0"></span> {{-- Invisible link overlay --}}
-                    {{ $name }}
+
+    {{-- Content Section --}}
+    <div class="p-3 sm:p-4 flex flex-col flex-grow">
+        @if($showExpressShippingBadge)
+            {{-- For pink theme, Jumia's orange might be changed to pink --}}
+            <span class="text-xs font-bold text-pink-600 mb-1 inline-block">EXPRESS SHIPPING</span>
+        @endif
+
+        <h3 class="text-sm font-medium text-gray-700 group-hover:text-pink-700 leading-snug mb-1.5 min-h-[40px]"> {{-- min-height for 2 lines --}}
+            <a href="{{ $productUrl }}">
+                {{ Str::limit($name, 55) }} {{-- Adjust limit as needed for typical name length --}}
+            </a>
+        </h3>
+
+        {{-- Price --}}
+        <div class="mb-2">
+            <p class="text-lg font-bold text-gray-900">GH₵ {{ number_format($price, 2) }}</p>
+            @if($discountPercentage > 0)
+                <div class="flex items-center text-xs mt-0.5">
+                    <span class="text-gray-500 line-through">GH₵ {{ number_format($compareAtPrice, 2) }}</span>
+                    <span class="ml-2 bg-pink-100 text-pink-700 font-semibold px-1.5 py-0.5 rounded-sm">-{{ $discountPercentage }}%</span>
+                </div>
+            @endif
+        </div>
+
+        {{-- Rating --}}
+        @if($reviewCount > 0)
+            <div class="flex items-center text-xs text-gray-500 mb-2">
+                <div class="flex">
+                    @for ($i = 1; $i <= 5; $i++)
+                        <x-heroicon-s-star class="w-3.5 h-3.5 {{ $i <= round($rating) ? 'text-yellow-400' : 'text-gray-300' }}"/>
+                    @endfor
+                </div>
+                <span class="ml-1.5">({{ $reviewCount }})</span>
+            </div>
+        @else
+            <div class="h-[18px] mb-2"></div> {{-- Placeholder for consistent height if no reviews --}}
+        @endif
+
+        {{-- Stock Information (Text only) --}}
+        @if($itemsLeftText)
+            <div class="mb-2">
+                <p class="text-xs text-red-600 font-medium">{{ $itemsLeftText }}</p>
+                {{-- Progress bar can be added here if $stockPercentage is calculated --}}
+                {{-- <div class="w-full bg-gray-200 rounded-full h-1 mt-0.5">
+                    <div class="bg-red-500 h-1 rounded-full" style="width: {{ $stockPercentage ?? 0 }}%"></div>
+                </div> --}}
+            </div>
+        @elseif($isAvailable && $product->variants_count == 0 && $currentStock > $lowStockThreshold)
+            <div class="h-[18px] mb-2"></div> {{-- Placeholder if in stock but not low --}}
+        @else
+            <div class="h-[18px] mb-2"></div> {{-- Placeholder if no specific stock info to show --}}
+        @endif
+
+
+        {{-- Action Button --}}
+        <div class="mt-auto"> {{-- Pushes button to the bottom --}}
+            @if($isAvailable)
+                <a href="{{ $productUrl }}"
+                   class="block w-full text-center rounded-md bg-pink-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-pink-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-colors duration-150 ease-in-out">
+                    {{ $product->variants_count > 0 ? 'View Options' : 'Add to Cart' }}
                 </a>
-            </h3>
-             {{-- Rating Display (Optional) --}}
-            @if($reviewCount > 0)
-             <div class="flex items-center mt-1">
-                 <div class="flex text-yellow-400 star-rating"> {{-- Add star-rating class --}}
-                     @for ($i = 1; $i <= 5; $i++)
-                         @if ($i <= round($rating)) <x-heroicon-s-star class="w-4 h-4"/> {{-- Use solid star --}}
-                         @else <x-heroicon-o-star class="w-4 h-4"/> {{-- Use outline star --}}
-                         @endif
-                     @endfor
-                 </div>
-                 <span class="text-gray-500 text-xs ml-1">({{ $reviewCount }})</span>
-             </div>
-            @endif
-        </div>
-         {{-- Price --}}
-         <div class="mt-3 flex items-baseline">
-            <p class="text-base font-semibold text-gray-900">${{ number_format($price, 2) }}</p>
-            @if($compareAtPrice && $compareAtPrice > $price)
-                <p class="text-sm text-gray-500 line-through ml-2">${{ number_format($compareAtPrice, 2) }}</p>
+            @else
+                <button type="button" disabled
+                        class="block w-full text-center rounded-md bg-gray-300 px-3 py-2.5 text-sm font-semibold text-gray-500 cursor-not-allowed">
+                    Sold Out
+                </button>
             @endif
         </div>
     </div>
-
-    {{-- Modal (Structure remains largely the same, but ensure it uses x-app-layout potentially or style directly) --}}
-    <x-modal :name="$modalName" :show="false">
-        <div class="p-6 bg-white"> {{-- Ensure modal has its own background --}}
-            {{-- Close button for accessibility inside modal --}}
-            <div class="flex justify-end">
-                <button type="button" x-on:click="$dispatch('close')"
-                        class="text-gray-400 hover:text-gray-600 focus:outline-none">
-                    <x-heroicon-o-x-mark class="w-6 h-6"/>
-                    <span class="sr-only">Close modal</span>
-                </button>
-            </div>
-
-            {{-- Modal Content --}}
-            <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                {{-- Image --}}
-                <div class="aspect-square w-full bg-gray-100 rounded-lg overflow-hidden">
-                     <img src="{{ $imageUrl }}" alt="{{ $altText }}" class="h-full w-full object-cover object-center">
-                </div>
-                {{-- Details --}}
-                <div class="flex flex-col h-full">
-                     <h2 class="text-2xl font-semibold text-gray-900 mb-2">
-                         {{ $name }}
-                     </h2>
-                     {{-- Rating --}}
-                     @if($reviewCount > 0)
-                     <div class="flex items-center mb-3">
-                         <div class="flex text-yellow-400 star-rating">
-                             @for ($i = 1; $i <= 5; $i++)
-                                 @if ($i <= round($rating)) <x-heroicon-s-star class="w-4 h-4"/>
-                                 @else <x-heroicon-o-star class="w-4 h-4"/>
-                                 @endif
-                             @endfor
-                         </div>
-                         <span class="text-gray-500 text-xs ml-2">({{ $reviewCount }} reviews)</span> {{-- Use reviewCount --}}
-                     </div>
-                     @endif
-                     {{-- Price --}}
-                     <div class="mb-4 flex items-baseline">
-                        <span class="text-pink-600 font-bold text-2xl">${{ number_format($price, 2) }}</span>
-                         @if($compareAtPrice && $compareAtPrice > $price)
-                            <span class="text-base text-gray-500 line-through ml-3">${{ number_format($compareAtPrice, 2) }}</span>
-                        @endif
-                     </div>
-                     {{-- Description --}}
-                     <div class="text-sm text-gray-600 mb-4 flex-grow prose prose-sm max-w-none">
-                         {{-- Use actual product description if available --}}
-                         <p>{{ $product->description ?: 'Detailed description coming soon. Check features and specifications.' }}</p>
-                         {{-- Maybe add specifications list here --}}
-                     </div>
-                     {{-- Action Buttons --}}
-                     <div class="mt-auto pt-4 border-t">
-                         <x-primary-button class="w-full justify-center !bg-pink-600 hover:!bg-pink-700 focus:!ring-pink-500">
-                             <x-heroicon-o-shopping-bag class="w-5 h-5 mr-2"/>
-                             Add to Cart
-                         </x-primary-button>
-                     </div>
-                </div>
-            </div>
-            {{-- Original close button removed, handled by X icon above --}}
-        </div>
-    </x-modal>
-
-</x-panel>
+</div>
