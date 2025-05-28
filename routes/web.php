@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ShippingZoneController;
 use App\Http\Controllers\Webhook\MtnMomoWebhookController;
 use App\Http\Controllers\ProductController as PublicProductController;
+use App\Http\Controllers\ReviewController;
 
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home'); 
@@ -29,6 +30,9 @@ Route::get('/product-overview', function () {
 Route::get('/products', [PublicProductController::class, 'index'])->name('products.index');
 
 Route::get('/products/{product:slug}', [PublicProductController::class, 'show'])->name('products.show');
+
+// Route for submitting reviews
+Route::post('/products/{product}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
 
 // --- MTN MOMO Route ---
 Route::post('/webhooks/mtn-momo', [MtnMomoWebhookController::class, 'handle'])
