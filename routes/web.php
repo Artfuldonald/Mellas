@@ -1,7 +1,9 @@
 <?php
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\WishlistController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\SettingController;
@@ -15,7 +17,6 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ShippingZoneController;
 use App\Http\Controllers\Webhook\MtnMomoWebhookController;
 use App\Http\Controllers\ProductController as PublicProductController;
-use App\Http\Controllers\ReviewController;
 
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home'); 
@@ -34,6 +35,13 @@ Route::get('/products/{product:slug}', [PublicProductController::class, 'show'])
 // Route for submitting reviews
 Route::post('/products/{product}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
 
+Route::middleware(['auth'])->prefix('wishlist')->name('wishlist.')->group(function () {
+    Route::get('/', [WishlistController::class, 'index'])->name('index');
+    Route::post('/add/{product}', [WishlistController::class, 'add'])->name('add');
+    // Using POST for remove as well, though DELETE verb is more semantically correct for APIs
+    // For simplicity in forms, POST is often used.
+    Route::post('/remove/{product}', [WishlistController::class, 'remove'])->name('remove');
+});
 // --- MTN MOMO Route ---
 Route::post('/webhooks/mtn-momo', [MtnMomoWebhookController::class, 'handle'])
      ->name('webhooks.mtn-momo');

@@ -46,49 +46,81 @@
     {{-- Review Form --}}
     <div id="reviews-form-section" class="mt-10 bg-white p-6 rounded-lg shadow-lg border border-gray-200">
         <h3 class="text-xl font-semibold text-gray-900 mb-2">Write a Review</h3>
-        <p class="text-sm text-gray-600 mb-4">Share your thoughts with other customers.</p>
-        <form action="{{ route('reviews.store', $product->id) }}" method="POST" class="space-y-4"> {{-- TODO: Create this route --}}
+        <p class="text-sm text-gray-600 mb-6">Share your thoughts with other customers.</p> {{-- Increased bottom margin --}}
+
+        {{-- Display general success/error messages --}}
+        @if (session('success'))
+            <div class="mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
+                {{ session('success') }}
+            </div>
+        @endif
+        @if (session('error'))
+            <div class="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
+                {{ session('error') }}
+            </div>
+        @endif
+        {{-- Show all validation errors at the top if preferred --}}
+        {{-- @if ($errors->any())
+            <div class="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
+                <strong class="font-bold">Oops! Something went wrong.</strong>
+                <ul class="mt-1 list-disc list-inside">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif --}}
+
+        <form action="{{ route('reviews.store', $product->id) }}" method="POST" class="space-y-5"> {{-- Increased space-y --}}
             @csrf
             <div>
-                <label for="rating" class="block text-sm font-medium text-gray-700">Your Rating</label>
-                <div class="mt-1 flex items-center space-x-1">
+                <label for="rating" class="block text-sm font-medium text-gray-700 mb-1">Your Rating <span class="text-red-500">*</span></label>
+                <div class="mt-1 flex items-center space-x-1" x-data="{rating: {{ old('rating', 0) }}, hoverRating: 0}">
                     @for ($i = 1; $i <= 5; $i++)
-                    <label class="cursor-pointer">
-                        <input type="radio" name="rating" value="{{ $i }}" class="sr-only peer" required>
-                        <x-heroicon-s-star class="w-6 h-6 text-gray-300 peer-checked:text-yellow-400 peer-hover:text-yellow-300 transition-colors"/>
+                    <label class="cursor-pointer"
+                           @mouseenter="hoverRating = {{ $i }}"
+                           @mouseleave="hoverRating = 0"
+                           @click="rating = {{ $i }}">
+                        <input type="radio" name="rating" value="{{ $i }}" class="sr-only peer" x-model.number="rating" required>
+                        <x-heroicon-s-star class="w-7 h-7 transition-colors"
+                                           :class="(hoverRating >= {{ $i }} || rating >= {{ $i }}) ? 'text-yellow-400' : 'text-gray-300'"/>
                     </label>
                     @endfor
                 </div>
-                @error('rating') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                @error('rating') <p class="text-red-500 text-xs mt-1.5">{{ $message }}</p> @enderror
             </div>
 
             @guest
             <div>
-                <label for="reviewer_name" class="block text-sm font-medium text-gray-700">Your Name</label>
-                <input type="text" name="reviewer_name" id="reviewer_name" value="{{ old('reviewer_name') }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm">
-                @error('reviewer_name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                <label for="reviewer_name" class="block text-sm font-medium text-gray-700">Your Name <span class="text-red-500">*</span></label>
+                <input type="text" name="reviewer_name" id="reviewer_name" value="{{ old('reviewer_name') }}" required
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm @error('reviewer_name') border-red-500 @enderror">
+                @error('reviewer_name') <p class="text-red-500 text-xs mt-1.5">{{ $message }}</p> @enderror
             </div>
             <div>
-                <label for="reviewer_email" class="block text-sm font-medium text-gray-700">Your Email (optional, not shown)</label>
-                <input type="email" name="reviewer_email" id="reviewer_email" value="{{ old('reviewer_email') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm">
-                @error('reviewer_email') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                <label for="reviewer_email" class="block text-sm font-medium text-gray-700">Your Email <span class="text-red-500">*</span> <span class="text-gray-500">(not shown publicly)</span></label>
+                <input type="email" name="reviewer_email" id="reviewer_email" value="{{ old('reviewer_email') }}" required
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm @error('reviewer_email') border-red-500 @enderror">
+                @error('reviewer_email') <p class="text-red-500 text-xs mt-1.5">{{ $message }}</p> @enderror
             </div>
             @endguest
 
             <div>
-                <label for="review_title" class="block text-sm font-medium text-gray-700">Review Title (optional)</label>
-                <input type="text" name="title" id="review_title" value="{{ old('title') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm">
-                @error('title') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                <label for="review_title" class="block text-sm font-medium text-gray-700">Review Title <span class="text-gray-500">(optional)</span></label>
+                <input type="text" name="title" id="review_title" value="{{ old('title') }}"
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm @error('title') border-red-500 @enderror">
+                @error('title') <p class="text-red-500 text-xs mt-1.5">{{ $message }}</p> @enderror
             </div>
 
             <div>
-                <label for="comment" class="block text-sm font-medium text-gray-700">Your Review</label>
-                <textarea id="comment" name="comment" rows="4" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm">{{ old('comment') }}</textarea>
-                @error('comment') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                <label for="comment" class="block text-sm font-medium text-gray-700">Your Review <span class="text-red-500">*</span></label>
+                <textarea id="comment" name="comment" rows="4" required
+                          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm @error('comment') border-red-500 @enderror">{{ old('comment') }}</textarea>
+                @error('comment') <p class="text-red-500 text-xs mt-1.5">{{ $message }}</p> @enderror
             </div>
 
             <div>
-                <button type="submit" class="inline-flex items-center justify-center rounded-md border border-transparent bg-pink-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2">
+                <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-transparent bg-pink-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 transition-colors">
                     Submit Review
                 </button>
             </div>

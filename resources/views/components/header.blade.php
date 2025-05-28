@@ -56,12 +56,25 @@
                     </div>
                 </div>
 
+                {{-- Wishlist --}}
+                @auth {{-- Show only if logged in --}}
+                    <a href="{{ route('wishlist.index') }}" class="flex items-center text-sm font-medium text-gray-700 hover:text-pink-600 p-1 sm:p-0">
+                        <x-heroicon-o-heart class="w-6 h-6"/>
+                        <span class="hidden md:inline ml-1">Wishlist</span>
+                        @if(isset($wishlistCountGlobal) && $wishlistCountGlobal > 0)
+                            <span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-pink-100 bg-pink-600 rounded-full">{{ $wishlistCountGlobal }}</span>
+                        @endif
+                    </a>
+                @endauth
+
                 {{-- Cart --}}
-                <a href="#" {{-- Link to cart page --}} class="flex items-center text-sm font-medium text-gray-700 hover:text-pink-600">
-                    <x-heroicon-o-shopping-cart class="w-6 h-6 mr-1" />
-                    <span class="hidden sm:inline">Cart</span>
-                    @php $cartCount = 0; /* Replace with actual cart count */ @endphp
-                    @if($cartCount > 0) <span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-pink-100 bg-pink-600 rounded-full">{{ $cartCount }}</span> @endif
+                <a href="#" {{-- TODO: Link to cart page (e.g., route('cart.index')) --}} class="flex items-center text-sm font-medium text-gray-700 hover:text-pink-600 p-1 sm:p-0">
+                    <x-heroicon-o-shopping-cart class="w-6 h-6"/>
+                    <span class="hidden md:inline ml-1">Cart</span>
+                    @php $cartCountGlobal = 0; /* Replace with actual cart count from View Composer later */ @endphp
+                    @if(isset($cartCountGlobal) && $cartCountGlobal > 0)
+                        <span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-pink-100 bg-pink-600 rounded-full">{{ $cartCountGlobal }}</span>
+                    @endif
                 </a>
 
                 {{-- Mobile Menu Toggle for MAIN navigation (Account, Help, etc. on mobile) --}}

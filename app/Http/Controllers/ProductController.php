@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Support\Js;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ProductController extends Controller
 {
@@ -38,6 +40,11 @@ class ProductController extends Controller
             });
         }
 
+        $userWishlistProductIds = [];
+        if (Auth::check()) {
+            $userWishlistProductIds = Auth::user()->wishlistItems()->pluck('product_id')->toArray();
+        }   
+
         $sortOrder = $request->input('sort', 'latest');
         switch ($sortOrder) {
             case 'price_asc':
@@ -69,7 +76,7 @@ class ProductController extends Controller
 
         $filterCategories = Category::where('is_active', true)->orderBy('name')->get(['name', 'slug']);
 
-        return view('products.index', compact('products', 'filterCategories', 'activeCategory', 'sortOrder'));
+        return view('products.index', compact('products', 'filterCategories', 'activeCategory', 'sortOrder', 'userWishlistProductIds'));
     }
 
     /**
@@ -118,21 +125,45 @@ class ProductController extends Controller
                 })->toArray()
             ]];
         });
+        
+        $relatedProducts = collect(); // Initialize as an empty collection
 
-        // Fetch related products (example logic, adjust as needed)
-        $relatedProducts = collect();
         if ($product->categories->isNotEmpty()) {
+            $firstCategoryId = $product->categories->first()->id; // Get ID of the first category
+
             $relatedProducts = Product::where('is_active', true)
                 ->where('id', '!=', $product->id) // Exclude current product
-                ->whereHas('categories', function ($q) use ($product) {
-                    $q->whereIn('categories.id', $product->categories->pluck('id'));
+                ->whereHas('categories', function ($q) use ($firstCategoryId) {
+                    $q->where('categories.id', $firstCategoryId); // Match products in the same first category
                 })
-                ->with(['images' => fn($q) => $q->orderBy('position')->limit(1)])
+                ->with([ // Eager load necessary data for product cards
+                    'images' => fn($q) => $q->orderBy('position')->limit(1),
+                ])
+                ->withCount('approvedReviews as reviews_count') 
+                ->withAvg('approvedReviews as reviews_avg_rating', 'rating')   
+                ->inRandomOrder() 
+                ->take(4)         
+                ->get();
+        }
+
+        // If still not enough related products, you could fall back to other logic
+        // e.g., recently viewed, or just any other featured products
+        if ($relatedProducts->count() < 4) {
+            $additionalProductsNeeded = 4 - $relatedProducts->count();
+            $existingIds = $relatedProducts->pluck('id')->push($product->id)->all(); 
+
+            $fallbackProducts = Product::where('is_active', true)
+                ->whereNotIn('id', $existingIds)
+                ->with([
+                    'images' => fn($q) => $q->orderBy('position')->limit(1),
+                ])
                 ->withCount('approvedReviews as reviews_count')
                 ->withAvg('approvedReviews as reviews_avg_rating', 'rating')
-                ->inRandomOrder()
-                ->take(4) // Number of related products
+                ->inRandomOrder() 
+                ->take($additionalProductsNeeded)
                 ->get();
+
+            $relatedProducts = $relatedProducts->merge($fallbackProducts);
         }
 
 
@@ -140,8 +171,7 @@ class ProductController extends Controller
             'product' => $product,
             'variantDataForJs' => Js::from($variantData),
             'optionsDataForJs' => Js::from($optionsData),
-            'relatedProducts' => $relatedProducts, // Pass related products to the view
-            // 'averageRating' and 'approvedReviewsCount' are now accessors on $product
+            'relatedProducts' => $relatedProducts, 
         ]);
     }
 }

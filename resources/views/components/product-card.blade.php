@@ -1,5 +1,6 @@
 @props([
-    'product' // Expects an App\Models\Product instance
+    'product',
+    'userWishlistProductIds' => [] 
 ])
 
 @php
@@ -41,25 +42,38 @@
     $showPayOnDeliveryBadge = false; // Set to true based on product data if needed
     $showExpressShippingBadge = false; // Set to true based on product data if needed
 
+    $isInWishlist = Auth::check() && in_array($product->id, $userWishlistProductIds);
 @endphp
 
 <div class="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col overflow-hidden group">
     {{-- Image Section --}}
     <div class="relative">
-        <a href="{{ $productUrl }}" class="block aspect-w-1 aspect-h-1 bg-pink-50"> {{-- aspect-w-1 aspect-h-1 for consistent image box --}}
+        <a href="{{ $productUrl }}" class="block aspect-w-1 aspect-h-1 bg-pink-50">
             <img src="{{ $imageUrl }}" alt="{{ $altText }}" class="w-full h-full object-contain sm:object-cover transition-transform duration-300 group-hover:scale-105">
-            {{-- Use object-contain if images vary a lot, object-cover if they are more uniform --}}
         </a>
 
-        {{-- Badges on Image --}}
+        {{-- Badges on Image (unchanged) --}}
         @if($showPayOnDeliveryBadge)
             <span class="absolute top-2 left-2 bg-green-100 text-green-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm shadow">Pay on Delivery</span>
         @endif
 
-        {{-- Wishlist Icon --}}
-        <button aria-label="Add to wishlist" class="absolute top-2 right-2 p-1.5 bg-white/80 hover:bg-white rounded-full text-pink-500 hover:text-pink-600 shadow-sm hover:shadow-md transition focus:outline-none focus:ring-2 focus:ring-pink-500">
-            <x-heroicon-o-heart class="w-5 h-5" />
-        </button>
+        {{-- Wishlist Icon/Button --}}
+        @auth {{-- Show wishlist button only if logged in --}}
+        <form action="{{ $isInWishlist ? route('wishlist.remove', $product->id) : route('wishlist.add', $product->id) }}" method="POST" class="absolute top-2 right-2">
+            @csrf
+            {{-- If route('wishlist.remove') used DELETE verb, you'd add @method('DELETE') here --}}
+            <button type="submit"
+                    aria-label="{{ $isInWishlist ? 'Remove from wishlist' : 'Add to wishlist' }}"
+                    title="{{ $isInWishlist ? 'Remove from wishlist' : 'Add to wishlist' }}"
+                    class="p-1.5 bg-white/80 hover:bg-white rounded-full text-pink-500 hover:text-pink-600 shadow-sm hover:shadow-md transition focus:outline-none focus:ring-2 focus:ring-pink-500">
+                @if($isInWishlist)
+                    <x-heroicon-s-heart class="w-5 h-5 text-pink-500" /> {{-- Solid heart --}}
+                @else
+                    <x-heroicon-o-heart class="w-5 h-5" /> {{-- Outline heart --}}
+                @endif
+            </button>
+        </form>
+        @endauth
     </div>
 
     {{-- Content Section --}}

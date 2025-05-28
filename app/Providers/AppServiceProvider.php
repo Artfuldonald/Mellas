@@ -48,12 +48,12 @@ class AppServiceProvider extends ServiceProvider
          
         
    View::composer(['components.header', 'layouts.app'], function ($view) {
-            // Check if already set to avoid re-querying if multiple composers hit the same view instance
+            // Categories for Navigation
             if (!isset($view->navCategories)) {
                 try {
-                    $navCategories = Category::whereNull('parent_id') // Get top-level categories
-                                            ->where('is_active', true) // Only active ones
-                                            ->with([ // Eager load children and their children (grandchildren)
+                    $navCategories = Category::whereNull('parent_id')
+                                            ->where('is_active', true)
+                                            ->with([
                                                 'children' => function($query) {
                                                     $query->where('is_active', true)
                                                           ->with(['children' => fn($q) => $q->where('is_active', true)->orderBy('name')])
@@ -65,8 +65,21 @@ class AppServiceProvider extends ServiceProvider
                     $view->with('navCategories', $navCategories);
                 } catch (\Exception $e) {
                     Log::error('View Composer Error fetching navCategories: ' . $e->getMessage());
-                    $view->with('navCategories', collect()); // Pass empty collection on error
+                    $view->with('navCategories', collect());
                 }
+            }
+
+            // Wishlist Count for Header
+            if (Auth::check() && !isset($view->wishlistCountGlobal)) { // Check if already set
+                try {
+                    $wishlistCountGlobal = Auth::user()->wishlistItems()->count();
+                    $view->with('wishlistCountGlobal', $wishlistCountGlobal);
+                } catch (\Exception $e) {
+                    Log::error('View Composer Error fetching wishlistCount: ' . $e->getMessage());
+                    $view->with('wishlistCountGlobal', 0); // Default to 0 on error
+                }
+            } elseif (!Auth::check() && !isset($view->wishlistCountGlobal)) {
+                 $view->with('wishlistCountGlobal', 0); // Default to 0 for guests
             }
         });
     }

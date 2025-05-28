@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -64,7 +65,7 @@ class User extends Authenticatable
     /**
      * Scope a query to only include admin users.
      */
-    public function scopeIsAdmin(Builder $query): void // <-- Use Builder type hint
+    public function scopeIsAdmin(Builder $query): void 
     {
         $query->where('is_admin', true);
     }
@@ -72,13 +73,24 @@ class User extends Authenticatable
     /**
      * Scope a query to only include non-admin users (customers).
      */
-    public function scopeIsCustomer(Builder $query): void // <-- Use Builder type hint
+    public function scopeIsCustomer(Builder $query): void 
     {
         $query->where('is_admin', false);
     }
 
-    public function reviews(): HasMany // <-- Add this
+    public function reviews(): HasMany 
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function wishlistItems(): HasMany
+    {
+        return $this->hasMany(WishlistItem::class);
+    }
+
+    // Helper to check if a product is in the user's wishlist
+    public function hasInWishlist(Product $product): bool
+    {
+        return $this->wishlistItems()->where('product_id', $product->id)->exists();
     }
 }
