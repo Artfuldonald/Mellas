@@ -34,16 +34,21 @@
                     </section>
                 @endif
 
-                @isset($featuredProducts)
-                    <section>
-                        <h2 class="text-2xl font-semibold text-gray-800 mb-6">Featured Products</h2>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                            @foreach($featuredProducts as $product)
-                                <x-product-card :product="$product" />
+                @isset($sponsoredProducts)
+                <section class="py-8 sm:py-12 bg-pink-50">
+                    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="flex justify-between items-center mb-4 sm:mb-6">
+                            <h2 class="text-xl sm:text-2xl font-semibold text-pink-800">Sponsored Products</h2>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                            @php $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : []; @endphp
+                            @foreach($sponsoredProducts as $product)
+                                <x-product-card-small :product="$product" :userWishlistProductIds="$userWishlistProductIds" />
                             @endforeach
                         </div>
-                    </section>
-                @endisset
+                    </div>
+                </section>
+    @endisset
             </main>
 
             {{-- Right Sidebar for "Call to Order", "Flash Sales" --}}
@@ -66,4 +71,80 @@
             </aside>
         </div>
     </div>
+    @pushOnce('scripts')
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        function handleSmallCardFormSubmit(form, event) {
+            event.preventDefault();
+            const button = form.querySelector('button[type="submit"]');
+            if (button) button.disabled = true; // Simple loading state
+
+            const formData = new FormData(form);
+            const plainFormData = Object.fromEntries(formData.entries());
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': formData.get('_token'), // Make sure CSRF token is in your small card forms
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(plainFormData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // console.log(data.message);
+                    if (form.classList.contains('add-to-cart-form-small')) {
+                        window.dispatchEvent(new CustomEvent('cart-updated', { detail: { count: data.cart_count } }));
+                        if(button && button.querySelector('svg')) { // If button has an icon
+                            const originalIconHTML = button.innerHTML;
+                            button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-green-500"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>`;
+                            setTimeout(() => { button.innerHTML = originalIconHTML; }, 1500);
+                        }
+                    } else if (form.classList.contains('add-to-wishlist-form-small')) {
+                        // For wishlist, usually a page reload or more complex state update is needed
+                        // to correctly toggle the icon based on server state.
+                        // For now, we can dispatch an event for the header and optionally try a visual toggle.
+                        window.dispatchEvent(new CustomEvent('wishlist-updated', { detail: { productId: plainFormData.product_id, wasAdded: !form.action.includes('remove') } }));
+                        // If you want to attempt a visual toggle (might get out of sync without full re-render):
+                        if(button && button.querySelector('svg')) {
+                            // This logic would need to be smarter or tied to an Alpine component state
+                            // For simplicity, we'll assume the action toggles the state visually
+                            const isCurrentlyInWishlist = form.action.includes('remove');
+                            if(isCurrentlyInWishlist) { // Was remove, so now it's out, show outline
+                                // button.innerHTML = `<x-heroicon-o-heart class="w-3.5 h-3.5" />`; // Blade doesn't work here
+                            } else { // Was add, so now it's in, show solid
+                                // button.innerHTML = `<x-heroicon-s-heart class="w-3.5 h-3.5 text-pink-500" />`;
+                            }
+                            // A page refresh or navigating away and back will show correct state from server.
+                        }
+                    }
+                    // You might want a more global notification system (Toastr, Noty, etc.)
+                    // alert(data.message); // Simple alert for now
+                } else {
+                    alert(data.message || 'An error occurred. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred processing your request.');
+            })
+            .finally(() => {
+                if (button) button.disabled = false;
+            });
+        }
+
+        // Use event delegation for dynamically added cards if sections are loaded via AJAX
+        // For now, direct binding is fine if cards are present on initial load.
+        document.body.addEventListener('submit', function(event) {
+            if (event.target.matches('.add-to-cart-form-small')) {
+                handleSmallCardFormSubmit(event.target, event);
+            } else if (event.target.matches('.add-to-wishlist-form-small')) {
+                handleSmallCardFormSubmit(event.target, event);
+            }
+        });
+    });
+    </script>
+    @endPushOnce
 </x-app-layout>

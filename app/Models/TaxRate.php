@@ -4,6 +4,28 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $name
+ * @property numeric $rate
+ * @property int $priority
+ * @property bool $is_active
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TaxRate newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TaxRate newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TaxRate query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TaxRate whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TaxRate whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TaxRate whereIsActive($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TaxRate whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TaxRate wherePriority($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TaxRate whereRate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TaxRate whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
 class TaxRate extends Model
 {
     //use HasFactory;

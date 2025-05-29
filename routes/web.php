@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ShippingZoneController;
 use App\Http\Controllers\Webhook\MtnMomoWebhookController;
+use App\Http\Controllers\CartController;
 use App\Http\Controllers\ProductController as PublicProductController;
 
 // Public Routes
@@ -42,6 +43,15 @@ Route::middleware(['auth'])->prefix('wishlist')->name('wishlist.')->group(functi
     // For simplicity in forms, POST is often used.
     Route::post('/remove/{product}', [WishlistController::class, 'remove'])->name('remove');
 });
+
+Route::prefix('cart')->name('cart.')->group(function () {
+    Route::get('/', [CartController::class, 'index'])->name('index');
+    Route::post('/add', [CartController::class, 'add'])->name('add'); // AJAX endpoint from PDP
+    Route::post('/update', [CartController::class, 'update'])->name('update'); // From cart page
+    Route::post('/remove', [CartController::class, 'remove'])->name('remove'); // From cart page
+    Route::post('/clear', [CartController::class, 'clear'])->name('clear');   // From cart page
+});
+
 // --- MTN MOMO Route ---
 Route::post('/webhooks/mtn-momo', [MtnMomoWebhookController::class, 'handle'])
      ->name('webhooks.mtn-momo');

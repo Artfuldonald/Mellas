@@ -207,6 +207,27 @@
                         </p>
                     </div>
 
+                    {{-- Inside the form in products.show.blade.php, before the Add to Cart button --}}
+                    <div x-show="cartMessage"
+                        :class="{
+                            'bg-green-100 border-green-400 text-green-700': cartMessageType === 'success',
+                            'bg-red-100 border-red-400 text-red-700': cartMessageType === 'error'
+                        }"
+                        class="border px-4 py-3 rounded relative mb-4 text-sm" role="alert">
+                        <span class="block sm:inline" x-text="cartMessage"></span>
+                    </div>
+
+                    <button type="submit" :disabled="!canAddToCart || addToCartText === 'Adding...'" ... >
+                        <span x-show="addToCartText !== 'Adding...'" x-text="addToCartText"></span>
+                        <span x-show="addToCartText === 'Adding...'">
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Adding...
+                        </span>
+                    </button>
+
                     {{-- Add to Cart Button --}}
                     <button type="submit"
                             :disabled="!canAddToCart"
@@ -411,32 +432,72 @@ document.addEventListener('alpine:init', () => {
 
         addToCart() {
             if (!this.canAddToCart) {
-                alert('This product configuration is not available.');
+                // alert('This product configuration is not available or out of stock.');
+                // Optionally, update a message div instead of alert
+                this.cartMessage = 'This product configuration is not available or out of stock.';
+                this.cartMessageType = 'error';
+                setTimeout(() => this.cartMessage = '', 3000);
                 return;
             }
-            let cartData = {
+
+            let formData = {
+                _token: '{{ csrf_token() }}', // CSRF token
                 product_id: {{ $product->id }},
-                product_name: this.productName,
                 quantity: this.quantity,
-                price: this.currentPrice,
+                // Add variant_id if a variant is selected
             };
+
             if (this.selectedVariant) {
-                cartData.variant_id = this.selectedVariant.id;
-                cartData.variant_sku = this.selectedVariant.sku;
-                cartData.attributes = {};
-                for (const attrId in this.selectedOptions) {
-                    const attrName = this.options[attrId].name;
-                    const valueId = this.selectedOptions[attrId];
-                    const valueObj = this.options[attrId].values.find(v => v.id === valueId);
-                    cartData.attributes[attrName] = valueObj ? valueObj.name : 'N/A';
-                }
+                formData.variant_id = this.selectedVariant.id;
+                // The controller will fetch price & name server-side based on product/variant ID
             }
-            console.log('Adding to cart:', cartData);
-            // Implement actual AJAX call to add to cart
-            alert(`${this.quantity} x ${this.productName} added to cart! (Variant ID: ${this.selectedVariant ? this.selectedVariant.id : 'N/A'}) Price: $${this.currentPrice.toFixed(2)}`);
-            // Potentially dispatch an event for cart update
-            // window.dispatchEvent(new CustomEvent('cart-updated', { detail: cartData }));
-        }
+
+            // Change button text to loading state
+            const originalButtonText = this.addToCartText;
+            this.addToCartText = 'Adding...'; // Example loading state
+
+            fetch('{{ route('cart.add') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}', // Also send as header
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // alert(data.message); // Or use a toast notification system
+                    this.cartMessage = data.message;
+                    this.cartMessageType = 'success';
+
+                    // Dispatch an event to update the mini-cart in the header
+                    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { count: data.cart_count } }));
+
+                    // Optionally, update stock display if you track it client-side (complex)
+                    // or reset quantity input
+                    // this.quantity = 1; // Reset quantity if desired
+                } else {
+                    // alert(data.message || 'Could not add item to cart.');
+                    this.cartMessage = data.message || (data.errors ? Object.values(data.errors).join(', ') : 'Could not add item to cart.');
+                    this.cartMessageType = 'error';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // alert('An error occurred. Please try again.');
+                this.cartMessage = 'An error occurred. Please try again.';
+                this.cartMessageType = 'error';
+            })
+            .finally(() => {
+                this.addToCartText = originalButtonText; // Reset button text
+                setTimeout(() => this.cartMessage = '', 5000); // Clear message after 5s
+            });
+        },
+        // Add these new properties to your Alpine component's data
+        cartMessage: '',
+        cartMessageType: '',
     }));
 });
 </script>

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event; 
+use Illuminate\Support\Facades\Session;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 
@@ -30,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
     {
         RedirectIfAuthenticated::redirectUsing(function ($request) {
             if (Auth::check()) { // Check if logged in
+                
                 if (Auth::user()->is_admin) {
                     // Logged-in Admin trying guest route -> redirect to admin dash
                     return route('admin.dashboard'); // <<< Correct
@@ -70,8 +72,9 @@ class AppServiceProvider extends ServiceProvider
             }
 
             // Wishlist Count for Header
-            if (Auth::check() && !isset($view->wishlistCountGlobal)) { // Check if already set
+            if (Auth::check() && !isset($view->wishlistCountGlobal)) {                 
                 try {
+                    
                     $wishlistCountGlobal = Auth::user()->wishlistItems()->count();
                     $view->with('wishlistCountGlobal', $wishlistCountGlobal);
                 } catch (\Exception $e) {
@@ -80,6 +83,18 @@ class AppServiceProvider extends ServiceProvider
                 }
             } elseif (!Auth::check() && !isset($view->wishlistCountGlobal)) {
                  $view->with('wishlistCountGlobal', 0); // Default to 0 for guests
+            }
+
+            // Cart Count for Header
+            if (!isset($view->cartCountGlobal)) {
+                $cart = Session::get('cart', []); 
+                $cartCountGlobal = 0;
+                foreach ($cart as $item) {
+                    if (isset($item['quantity'])) { // Add a check for quantity
+                        $cartCountGlobal += $item['quantity'];
+                    }
+                }
+                $view->with('cartCountGlobal', $cartCountGlobal);
             }
         });
     }

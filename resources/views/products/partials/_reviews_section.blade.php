@@ -56,7 +56,7 @@
         @endif
         @if (session('error'))
             <div class="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
-                {{ session('error') }}
+                {{ session('error') }}s
             </div>
         @endif
         {{-- Show all validation errors at the top if preferred --}}

@@ -1,75 +1,67 @@
 @props([
     'product',
-    'userWishlistProductIds' => [] 
+    'userWishlistProductIds' => []
 ])
 
 @php
     $name = $product->name ?? 'Product Name';
-    $imageUrl = $product->images->first()?->image_url ?? asset('images/placeholder.png'); // Assumes image_url accessor
+    $imageUrl = $product->images->first()?->image_url ?? asset('images/placeholder.png');
     $altText = $product->images->first()?->alt ?? $name;
     $price = (float)($product->price ?? 0);
     $compareAtPrice = (float)($product->compare_at_price ?? 0);
     $productUrl = route('products.show', $product->slug ?? $product->id);
 
-    $reviewCount = $product->reviews_count ?? 0; // Assumes 'reviews_count' loaded by withCount('reviews')
-    $rating = $product->reviews_avg_rating ?? ($product->rating ?? 0); // Assumes 'reviews_avg_rating' or 'rating'
+    // Use the aliases from your controller's withCount/withAvg
+    $reviewCount = $product->reviews_count ?? 0;
+    $rating = $product->reviews_avg_rating ?? 0;
 
-    // Stock and Availability
-    // This is a simplified stock check. Adapt if you have variants with individual stock.
-    $isAvailable = ($product->quantity ?? 0) > 0 || ($product->variants_count > 0); // If variants exist, assume PDP handles stock
+    $isAvailable = ($product->quantity ?? 0) > 0 || ($product->variants_count > 0);
     if ($product->variants_count == 0 && property_exists($product, 'quantity')) {
         $isAvailable = $product->quantity > 0;
     }
-    $currentStock = $product->quantity ?? 0; // For simple products
+    $currentStock = $product->quantity ?? 0;
 
     $discountPercentage = 0;
     if ($compareAtPrice > 0 && $compareAtPrice > $price) {
         $discountPercentage = round((($compareAtPrice - $price) / $compareAtPrice) * 100);
     }
 
-    // "Items Left" Logic (Example)
-    $lowStockThreshold = 10; // Show "items left" if stock is this or less
+    $lowStockThreshold = 10;
     $itemsLeftText = null;
-    $stockPercentage = null;
-    if ($isAvailable && $product->variants_count == 0 && $currentStock <= $lowStockThreshold && $currentStock > 0) {
-        $itemsLeftText = $currentStock . ' ' . Str::plural('item', $currentStock) . ' left';
-        // You could also calculate a percentage for a progress bar if you have an "initial stock" concept
-        // For simplicity, we'll just show text. For a bar:
-        // $stockPercentage = ($currentStock / $lowStockThreshold) * 100;
+    $stockBarPercentage = null;
+
+    if ($isAvailable && $product->variants_count == 0 && $currentStock > 0) {
+        if ($currentStock <= $lowStockThreshold) {
+            $itemsLeftText = $currentStock . ' ' . Str::plural('item', $currentStock) . ' left';
+            $stockBarPercentage = ($currentStock / $lowStockThreshold) * 100;
+            if ($stockBarPercentage < 10) $stockBarPercentage = 10;
+        }
     }
-
-    // Placeholder for special badges (like "Pay on Delivery" or "Express Shipping")
-    $showPayOnDeliveryBadge = false; // Set to true based on product data if needed
-    $showExpressShippingBadge = false; // Set to true based on product data if needed
-
     $isInWishlist = Auth::check() && in_array($product->id, $userWishlistProductIds);
 @endphp
 
-<div class="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col overflow-hidden group">
+{{-- This card is for the main /products listing page, styled like Jumia's grid items --}}
+<div class="bg-white rounded shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col overflow-hidden group border border-gray-200 h-full"> {{-- h-full for consistent height in grid --}}
     {{-- Image Section --}}
     <div class="relative">
-        <a href="{{ $productUrl }}" class="block aspect-w-1 aspect-h-1 bg-pink-50">
-            <img src="{{ $imageUrl }}" alt="{{ $altText }}" class="w-full h-full object-contain sm:object-cover transition-transform duration-300 group-hover:scale-105">
+        <a href="{{ $productUrl }}" class="block aspect-[4/3] bg-gray-100 overflow-hidden">
+            <img src="{{ $imageUrl }}" alt="{{ $altText }}" class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105">
         </a>
 
-        {{-- Badges on Image (unchanged) --}}
-        @if($showPayOnDeliveryBadge)
-            <span class="absolute top-2 left-2 bg-green-100 text-green-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm shadow">Pay on Delivery</span>
+        @if($discountPercentage > 0)
+            <span class="absolute top-1 left-1 bg-pink-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">-{{ $discountPercentage }}%</span>
         @endif
 
-        {{-- Wishlist Icon/Button --}}
-        @auth {{-- Show wishlist button only if logged in --}}
-        <form action="{{ $isInWishlist ? route('wishlist.remove', $product->id) : route('wishlist.add', $product->id) }}" method="POST" class="absolute top-2 right-2">
+        @auth
+        <form action="{{ $isInWishlist ? route('wishlist.remove', $product->id) : route('wishlist.add', $product->id) }}" method="POST" class="absolute top-1.5 right-1.5 z-10 product-card-wishlist-form">
             @csrf
-            {{-- If route('wishlist.remove') used DELETE verb, you'd add @method('DELETE') here --}}
             <button type="submit"
-                    aria-label="{{ $isInWishlist ? 'Remove from wishlist' : 'Add to wishlist' }}"
                     title="{{ $isInWishlist ? 'Remove from wishlist' : 'Add to wishlist' }}"
-                    class="p-1.5 bg-white/80 hover:bg-white rounded-full text-pink-500 hover:text-pink-600 shadow-sm hover:shadow-md transition focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    class="p-1.5 bg-white/80 hover:bg-white rounded-full text-gray-500 hover:text-pink-600 shadow-sm transition focus:outline-none focus:ring-1 focus:ring-pink-400">
                 @if($isInWishlist)
-                    <x-heroicon-s-heart class="w-5 h-5 text-pink-500" /> {{-- Solid heart --}}
+                    <x-heroicon-s-heart class="w-4 h-4 text-pink-500" />
                 @else
-                    <x-heroicon-o-heart class="w-5 h-5" /> {{-- Outline heart --}}
+                    <x-heroicon-o-heart class="w-4 h-4" />
                 @endif
             </button>
         </form>
@@ -77,72 +69,136 @@
     </div>
 
     {{-- Content Section --}}
-    <div class="p-3 sm:p-4 flex flex-col flex-grow">
-        @if($showExpressShippingBadge)
-            {{-- For pink theme, Jumia's orange might be changed to pink --}}
-            <span class="text-xs font-bold text-pink-600 mb-1 inline-block">EXPRESS SHIPPING</span>
-        @endif
-
-        <h3 class="text-sm font-medium text-gray-700 group-hover:text-pink-700 leading-snug mb-1.5 min-h-[40px]"> {{-- min-height for 2 lines --}}
-            <a href="{{ $productUrl }}">
-                {{ Str::limit($name, 55) }} {{-- Adjust limit as needed for typical name length --}}
+    <div class="p-2.5 flex flex-col flex-grow">
+        <h3 class="text-xs font-normal text-gray-700 leading-tight mb-1 min-h-[32px] line-clamp-2">
+            <a href="{{ $productUrl }}" class="hover:text-pink-600">
+                {{ $name }}
             </a>
         </h3>
 
-        {{-- Price --}}
-        <div class="mb-2">
-            <p class="text-lg font-bold text-gray-900">GH₵ {{ number_format($price, 2) }}</p>
+        <div class="mb-1.5">
+            <p class="text-base font-semibold text-gray-900">GH₵ {{ number_format($price, 2) }}</p>
             @if($discountPercentage > 0)
-                <div class="flex items-center text-xs mt-0.5">
+                <div class="text-[11px] mt-0 flex items-center">
                     <span class="text-gray-500 line-through">GH₵ {{ number_format($compareAtPrice, 2) }}</span>
-                    <span class="ml-2 bg-pink-100 text-pink-700 font-semibold px-1.5 py-0.5 rounded-sm">-{{ $discountPercentage }}%</span>
+                    {{-- Discount percentage is shown on image badge now --}}
                 </div>
             @endif
         </div>
 
-        {{-- Rating --}}
-        @if($reviewCount > 0)
-            <div class="flex items-center text-xs text-gray-500 mb-2">
-                <div class="flex">
-                    @for ($i = 1; $i <= 5; $i++)
-                        <x-heroicon-s-star class="w-3.5 h-3.5 {{ $i <= round($rating) ? 'text-yellow-400' : 'text-gray-300' }}"/>
-                    @endfor
+        <div class="text-xs text-gray-500 mb-1.5 min-h-[16px]">
+            @if($reviewCount > 0)
+                <div class="flex items-center">
+                    <div class="flex">
+                        @for ($i = 1; $i <= 5; $i++)
+                            <x-heroicon-s-star class="w-3 h-3 {{ $i <= round($rating) ? 'text-yellow-400' : 'text-gray-300' }}"/>
+                        @endfor
+                    </div>
+                    <span class="ml-1">({{ $reviewCount }})</span>
                 </div>
-                <span class="ml-1.5">({{ $reviewCount }})</span>
-            </div>
-        @else
-            <div class="h-[18px] mb-2"></div> {{-- Placeholder for consistent height if no reviews --}}
-        @endif
+            @endif
+        </div>
 
-        {{-- Stock Information (Text only) --}}
         @if($itemsLeftText)
-            <div class="mb-2">
-                <p class="text-xs text-red-600 font-medium">{{ $itemsLeftText }}</p>
-                {{-- Progress bar can be added here if $stockPercentage is calculated --}}
-                {{-- <div class="w-full bg-gray-200 rounded-full h-1 mt-0.5">
-                    <div class="bg-red-500 h-1 rounded-full" style="width: {{ $stockPercentage ?? 0 }}%"></div>
-                </div> --}}
+            <div class="mb-1.5">
+                <p class="text-[10px] text-orange-600 font-medium">{{ $itemsLeftText }}</p>
+                @if($stockBarPercentage !== null)
+                <div class="w-full bg-gray-200 rounded-full h-1 mt-0.5 overflow-hidden">
+                    <div class="bg-orange-500 h-1 rounded-full" style="width: {{ $stockBarPercentage }}%"></div>
+                </div>
+                @endif
             </div>
-        @elseif($isAvailable && $product->variants_count == 0 && $currentStock > $lowStockThreshold)
-            <div class="h-[18px] mb-2"></div> {{-- Placeholder if in stock but not low --}}
         @else
-            <div class="h-[18px] mb-2"></div> {{-- Placeholder if no specific stock info to show --}}
+            <div class="h-[18px] mb-1.5"></div> {{-- Maintain space if no stock info --}}
         @endif
 
+        {{-- Optional: Jumia Express Badge --}}
+        {{-- @if($product->is_express_eligible)
+            <img src="{{ asset('images/jumia-express-badge.svg') }}" alt="Jumia Express" class="h-3 mb-1.5">
+        @endif --}}
 
-        {{-- Action Button --}}
-        <div class="mt-auto"> {{-- Pushes button to the bottom --}}
+        <div class="mt-auto pt-1"> {{-- Pushes button to bottom --}}
             @if($isAvailable)
-                <a href="{{ $productUrl }}"
-                   class="block w-full text-center rounded-md bg-pink-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-pink-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-colors duration-150 ease-in-out">
-                    {{ $product->variants_count > 0 ? 'View Options' : 'Add to Cart' }}
-                </a>
+                 {{-- On listing, "Add to cart" for simple products, "View Options" for variants --}}
+                 @if($product->variants_count > 0)
+                    <a href="{{ $productUrl }}"
+                       class="block w-full text-center rounded bg-pink-600 px-2 py-2 text-xs font-semibold text-white shadow-sm hover:bg-pink-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-colors">
+                        View Options
+                    </a>
+                 @else
+                    <form action="{{ route('cart.add') }}" method="POST" class="product-card-add-to-cart-form">
+                        @csrf
+                        <input type="hidden" name="product_id" value="{{ $product->id }}">
+                        <input type="hidden" name="quantity" value="1">
+                        <button type="submit"
+                                class="block w-full text-center rounded bg-pink-600 px-2 py-2 text-xs font-semibold text-white shadow-sm hover:bg-pink-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-colors">
+                            Add to Cart
+                        </button>
+                    </form>
+                 @endif
             @else
                 <button type="button" disabled
-                        class="block w-full text-center rounded-md bg-gray-300 px-3 py-2.5 text-sm font-semibold text-gray-500 cursor-not-allowed">
-                    Sold Out
+                        class="block w-full text-center rounded bg-gray-300 px-2 py-2 text-xs font-semibold text-gray-500 cursor-not-allowed">
+                    Out of Stock
                 </button>
             @endif
         </div>
     </div>
 </div>
+
+@pushOnce('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const forms = document.querySelectorAll('.product-card-add-to-cart-form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            const button = this.querySelector('button[type="submit"]');
+            const originalButtonText = button.innerHTML;
+            button.innerHTML = `
+                <svg class="animate-spin h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg> Adding...`;
+            button.disabled = true;
+
+            const formData = new FormData(this);
+            const plainFormData = Object.fromEntries(formData.entries());
+
+            fetch(this.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': formData.get('_token'),
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(plainFormData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // alert(data.message); // Or a toast notification
+                    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { count: data.cart_count } }));
+                    // Optionally show a success state on the button briefly
+                    button.innerHTML = 'Added!';
+                    setTimeout(() => {
+                        button.innerHTML = originalButtonText;
+                        button.disabled = false;
+                    }, 2000);
+                } else {
+                    alert(data.message || 'Could not add to cart.');
+                    button.innerHTML = originalButtonText;
+                    button.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred.');
+                button.innerHTML = originalButtonText;
+                button.disabled = false;
+            });
+        });
+    });
+});
+</script>
+@endPushOnce

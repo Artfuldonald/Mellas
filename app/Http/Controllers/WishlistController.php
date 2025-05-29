@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\User;
 use App\Models\WishlistItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,7 @@ class WishlistController extends Controller
      */
     public function index()
     {
+         
         $wishlistItems = Auth::user()->wishlistItems()->with([
             'product.images' => fn($q) => $q->orderBy('position')->limit(1),
             'product' => fn($q) => $q->withCount('approvedReviews as reviews_count')
