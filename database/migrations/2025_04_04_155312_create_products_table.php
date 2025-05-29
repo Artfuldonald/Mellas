@@ -30,6 +30,7 @@ return new class extends Migration
             $table->decimal('weight', 10, 2)->nullable();
             $table->string('weight_unit')->default('kg');
             $table->json('dimensions')->nullable();
+            $table->foreignId('brand_id')->nullable()->constrained()->onDelete('set null');
             $table->timestamps();
         });
     }

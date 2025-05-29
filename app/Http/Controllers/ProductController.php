@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Support\Js;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 
 class ProductController extends Controller
@@ -22,16 +23,16 @@ class ProductController extends Controller
         $query = Product::where('is_active', true)
                         ->with([
                             'images' => fn($q) => $q->orderBy('position')->limit(1),
-                            // No need to load 'reviews' collection here, just counts/avg
                         ])
                         ->withCount([
                             'variants',
-                            'approvedReviews as reviews_count' // Alias to reviews_count for card
+                            'approvedReviews as reviews_count'
                         ])
-                        ->withAvg('approvedReviews as reviews_avg_rating', 'rating'); // Alias to reviews_avg_rating
+                        ->withAvg('approvedReviews as reviews_avg_rating', 'rating');
 
         $activeCategory = null;
 
+        // --- Filtering by Category ---
         if ($request->filled('category')) {
             $categorySlug = $request->input('category');
             $activeCategory = Category::where('slug', $categorySlug)->where('is_active', true)->firstOrFail();
@@ -40,11 +41,42 @@ class ProductController extends Controller
             });
         }
 
-        $userWishlistProductIds = [];
-        if (Auth::check()) {
-            $userWishlistProductIds = Auth::user()->wishlistItems()->pluck('product_id')->toArray();
-        }   
+        // --- Filtering by Brand ---
+        if ($request->filled('brands') && is_array($request->input('brands'))) {
+            $brandSlugs = $request->input('brands');
+            // Assuming Brand model has a 'slug' column
+            $query->whereHas('brand', function ($q) use ($brandSlugs) { // Assumes 'brand' relationship on Product model
+                $q->whereIn('slug', $brandSlugs);
+            });
+        }
 
+        // --- Filtering by Price Range ---
+        if ($request->filled('price_min')) {
+            $query->where('price', '>=', (float)$request->input('price_min'));
+        }
+        if ($request->filled('price_max')) {
+            $query->where('price', '<=', (float)$request->input('price_max'));
+        }
+
+        // --- Filtering by Discount Percentage ---
+        if ($request->filled('discount_min')) {
+            $minDiscount = (int)$request->input('discount_min');
+            if ($minDiscount > 0) {
+                // Calculate discount: ( (compare_at_price - price) / compare_at_price ) * 100 >= minDiscount
+                // This requires compare_at_price to be set and greater than price.
+                $query->whereNotNull('compare_at_price')
+                      ->where('compare_at_price', '>', DB::raw('price')) // Ensure compare_at_price > price
+                      ->whereRaw('((compare_at_price - price) / compare_at_price) * 100 >= ?', [$minDiscount]);
+            }
+        }
+
+        // --- Other Filters (Example: Shipped From) ---
+        // if ($request->filled('shipped_from')) {
+        //     $query->where('shipping_origin', $request->input('shipped_from')); // Example field
+        // }
+
+
+        // --- Sorting ---
         $sortOrder = $request->input('sort', 'latest');
         switch ($sortOrder) {
             case 'price_asc':
@@ -53,17 +85,13 @@ class ProductController extends Controller
             case 'price_desc':
                 $query->orderBy('price', 'desc');
                 break;
-            case 'name_asc':
+            case 'name_asc': // Keep if you want it as an option
                 $query->orderBy('name', 'asc');
                 break;
-            case 'name_desc':
-                $query->orderBy('name', 'desc');
-                break;
-            // Add sorting by rating if desired
             case 'rating_desc':
-                // This sorts by the average rating. Requires the withAvg above or a subquery.
-                // If using withAvg, you can orderBy the alias.
-                $query->orderBy('reviews_avg_rating', 'desc');
+                $query->orderByDesc(DB::raw('(SELECT AVG(rating) FROM reviews WHERE reviews.product_id = products.id AND reviews.is_approved = 1)'));
+                // Or if using the withAvg alias, ensure it's available for orderBy:
+                // $query->orderBy('reviews_avg_rating', 'desc'); // Might need to adjust if alias isn't directly sortable this way without subquery
                 break;
             case 'latest':
             default:
@@ -71,12 +99,35 @@ class ProductController extends Controller
                 break;
         }
 
-        $productsPerPage = 12;
+        $productsPerPage = $request->input('per_page', 15); // Jumia often shows 10-20, make it configurable
         $products = $query->paginate($productsPerPage)->withQueryString();
 
+        // Data for filter sidebars
         $filterCategories = Category::where('is_active', true)->orderBy('name')->get(['name', 'slug']);
+        $brands = Brand::where('is_active', true)->whereHas('products')->withCount('products')->orderBy('name')->get(['id','name', 'slug']); // Fetch brands that have products
 
-        return view('products.index', compact('products', 'filterCategories', 'activeCategory', 'sortOrder', 'userWishlistProductIds'));
+        $userWishlistProductIds = [];
+        if (Auth::check()) {
+            $userWishlistProductIds = Auth::user()->wishlistItems()->pluck('product_id')->toArray();
+        }
+
+        // If the request is an AJAX request (we'll use this later)
+        if ($request->ajax()) {
+            return response()->json([
+                'products_html' => view('products.partials._product_grid', compact('products', 'userWishlistProductIds'))->render(),
+                'pagination_html' => $products->links()->toHtml(),
+                'result_count_html' => view('products.partials._result_count', compact('products'))->render(),
+            ]);
+        }
+
+        return view('products.index', compact(
+            'products',
+            'filterCategories',
+            'brands', 
+            'activeCategory',
+            'sortOrder',
+            'userWishlistProductIds'
+        ));
     }
 
     /**

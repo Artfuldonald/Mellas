@@ -69,26 +69,73 @@
                         </div>
                         <hr class="border-gray-100">
 
-                        {{-- Placeholder for Brand Filter --}}
-                        <div class="filter-section">
+                        {{-- Brand Filter --}}
+                        <div class="filter-section" x-data="{ searchBrand: '' }">
                             <h3 class="text-sm font-semibold text-gray-800 mb-2 uppercase tracking-wide">Brand</h3>
                             <div class="relative mb-2">
-                                <input type="search" placeholder="Search brand" class="w-full border-gray-300 rounded-md shadow-sm text-xs py-1.5 px-2 focus:ring-pink-500 focus:border-pink-500">
-                                {{-- <x-heroicon-o-magnifying-glass class="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" /> --}}
+                                <input type="search" placeholder="Search brand" x-model="searchBrand"
+                                       class="w-full border-gray-300 rounded-md shadow-sm text-xs py-1.5 pl-2 pr-7 focus:ring-pink-500 focus:border-pink-500">
+                                <x-heroicon-o-magnifying-glass class="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                             </div>
-                            <ul class="space-y-1 text-xs max-h-40 overflow-y-auto custom-scrollbar-mobile pr-1">
-                                {{-- @foreach($brands as $brand)
-                                <li>
-                                    <label class="flex items-center space-x-2 text-gray-600 hover:text-pink-700 cursor-pointer py-1">
-                                        <input type="checkbox" name="brands[]" value="{{ $brand->slug }}" class="rounded border-gray-300 text-pink-600 shadow-sm focus:ring-pink-500 h-3.5 w-3.5">
-                                        <span>{{ $brand->name }} <span class="text-gray-400">({{ $brand->products_count }})</span></span>
-                                    </label>
-                                </li>
-                                @endforeach --}}
-                                <li class="text-gray-500 italic">Brand filter coming soon...</li>
+                            <ul class="space-y-0.5 text-xs max-h-48 overflow-y-auto custom-scrollbar-mobile pr-1">
+                               {{-- @forelse($brands as $brand)
+                                    <li x-show="searchBrand === '' || '{{ strtolower($brand->name) }}'.includes(searchBrand.toLowerCase())">
+                                        <label class="flex items-center space-x-2 text-gray-600 hover:text-pink-700 cursor-pointer py-1 px-1 rounded hover:bg-pink-50">
+                                            <input type="checkbox" name="brands[]" value="{{ $brand->slug }}"
+                                                   form="filterForm" onchange="document.getElementById('filterForm').submit()"
+                                                   class="rounded border-gray-300 text-pink-600 shadow-sm focus:ring-pink-500 h-3.5 w-3.5"
+                                                   {{ (is_array(request('brands')) && in_array($brand->slug, request('brands'))) ? 'checked' : '' }}>
+                                            <span>{{ $brand->name }} <span class="text-gray-400">({{ $brand->products_count }})</span></span>
+                                        </label>
+                                    </li>
+                                @empty
+                                    <li class="text-gray-500 italic px-1">No brands available.</li>
+                                @endforelse --}}
                             </ul>
                         </div>
                         <hr class="border-gray-100">
+
+                        {{-- Price Range Filter --}}
+                        <div class="filter-section">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wide">Price (GH₵)</h3>
+                            <div class="flex items-center space-x-2 mb-2">
+                                <input type="number" name="price_min" placeholder="Min" value="{{ request('price_min') }}"
+                                       form="filterForm"
+                                       class="w-full border-gray-300 rounded-md shadow-sm text-xs py-1.5 px-2 focus:ring-pink-500 focus:border-pink-500">
+                                <span class="text-gray-400">-</span>
+                                <input type="number" name="price_max" placeholder="Max" value="{{ request('price_max') }}"
+                                       form="filterForm"
+                                       class="w-full border-gray-300 rounded-md shadow-sm text-xs py-1.5 px-2 focus:ring-pink-500 focus:border-pink-500">
+                            </div>
+                            <button type="submit" form="filterForm" class="w-full text-xs bg-pink-500 text-white py-1.5 rounded hover:bg-pink-600 transition mt-1">Apply Price</button>
+                        </div>
+                        <hr class="border-gray-100">
+
+                        {{-- Discount Percentage --}}
+                        <div class="filter-section">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-2 uppercase tracking-wide">Discount Percentage</h3>
+                             <ul class="space-y-0.5 text-xs">
+                                @foreach(['80', '70', '50', '20'] as $discount)
+                                <li>
+                                    <label class="flex items-center space-x-2 text-gray-600 hover:text-pink-700 cursor-pointer py-1 px-1 rounded hover:bg-pink-50">
+                                        <input type="radio" name="discount_min" value="{{ $discount }}"
+                                               form="filterForm" onchange="document.getElementById('filterForm').submit()"
+                                               class="rounded-full border-gray-300 text-pink-600 shadow-sm focus:ring-pink-500 h-3.5 w-3.5"
+                                               {{ request('discount_min') == $discount ? 'checked' : '' }}>
+                                        <span>{{ $discount }}% or more</span>
+                                    </label>
+                                </li>
+                                @endforeach
+                                @if(request('discount_min')) {{-- Add a way to clear discount filter --}}
+                                 <li>
+                                    <a href="{{ route('products.index', array_merge(request()->except(['discount_min', 'page']), ['sort' => $sortOrder])) }}"
+                                       class="block py-1.5 px-2 text-pink-600 hover:underline text-xs mt-1">
+                                        Clear Discount
+                                    </a>
+                                 </li>
+                                @endif
+                            </ul>
+                        </div>
 
                         {{-- Price Range Filter --}}
                         <div class="filter-section">
@@ -133,37 +180,7 @@
                             @endif
                         @endforeach
                         {{-- Inputs for price_min, price_max, discount_min will be added by JS or their forms directly --}}
-                    </form>
-                    <script>
-                        // Script to link standalone filter inputs to the main filterForm
-                        document.addEventListener('DOMContentLoaded', function() {
-                            const filterForm = document.getElementById('filterForm');
-                            const priceMinInput = document.querySelector('input[name="price_min"]');
-                            const priceMaxInput = document.querySelector('input[name="price_max"]');
-                            const discountRadios = document.querySelectorAll('input[name="discount_min"]');
-
-                            function updateFilterFormInput(name, value) {
-                                let input = filterForm.querySelector(`input[type="hidden"][name="${name}"]`);
-                                if (!input) {
-                                    input = document.createElement('input');
-                                    input.type = 'hidden';
-                                    input.name = name;
-                                    filterForm.appendChild(input);
-                                }
-                                input.value = value;
-                            }
-
-                            if (priceMinInput) priceMinInput.addEventListener('change', (e) => updateFilterFormInput('price_min', e.target.value));
-                            if (priceMaxInput) priceMaxInput.addEventListener('change', (e) => updateFilterFormInput('price_max', e.target.value));
-                            discountRadios.forEach(radio => {
-                                radio.addEventListener('change', (e) => {
-                                    if (e.target.checked) updateFilterFormInput('discount_min', e.target.value);
-                                });
-                            });
-                             // Auto-submit form when certain filters change, or rely on "Apply" button
-                            // Example: discountRadios.forEach(radio => radio.addEventListener('change', () => filterForm.submit()));
-                        });
-                    </script>
+                    </form>                   
                 </div>
             </aside>
 
