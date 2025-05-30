@@ -12,12 +12,34 @@
 @endif
 
 @php
+    $product = $product ?? new \App\Models\Product();
     $selectedCategories = old('categories', isset($product) ? $product->categories->pluck('id')->toArray() : []);
     $hasVariants = old('has_variants', isset($product) && ($product->variants()->exists() || $product->attributes()->exists()) );
     $selectedAttributes = old('product_attributes', isset($product) ? $product->attributes->pluck('id')->map(fn($id) => (string)$id)->toArray() : []);
     $initialVariants = isset($product) && $product->exists ? $product->variants()->with('attributeValues')->get() : collect();
-    $allAttributesForAlpine = isset($allAttributes) ? $allAttributes : \App\Models\Attribute::with('values')->orderBy('name')->get();
-    $jsProductId = isset($product) && $product->exists ? $product->id : null;
+    $allAttributesForAlpine = $allAttributes ?? \App\Models\Attribute::with('values')->orderBy('name')->get();
+    $brandsForSelect = $brands ?? \App\Models\Brand::where('is_active', true)->orderBy('name')->get();
+    $jsProductId = $product->exists ? $product->id : null;
+
+    $formSpecifications = [];
+    if (!empty(old('spec_keys'))) { // Repopulate from old input if validation failed
+        foreach (old('spec_keys') as $index => $key) {
+            if (!empty($key) && isset(old('spec_values')[$index])) {
+                $formSpecifications[] = ['key' => $key, 'value' => old('spec_values')[$index]];
+            }
+        }
+    } elseif ($product->specifications) {
+        // If product->specifications is already an array of ['key'=>..., 'value'=>...] objects:
+        if (is_array($product->specifications) && !empty($product->specifications) && isset($product->specifications[0]['key'])) {
+            $formSpecifications = $product->specifications;
+        }
+        // If product->specifications is an associative array, convert it
+        elseif (is_array($product->specifications) && !empty($product->specifications) && !isset($product->specifications[0]['key'])) {
+            foreach($product->specifications as $key => $value) {
+                $formSpecifications[] = ['key' => $key, 'value' => $value];
+            }
+        }
+    }
 @endphp
 
 <div x-data="productForm({
@@ -25,7 +47,8 @@
         hasVariants: {{ $hasVariants ? 'true' : 'false' }},
         allAttributes: {{ Js::from($allAttributesForAlpine) }},
         initialAttributes: {{ Js::from($selectedAttributes) }},
-        initialVariants: {{ Js::from($initialVariants) }}
+        initialVariants: {{ Js::from($initialVariants) }},
+        initialSpecifications: {{ Js::from($formSpecifications) }}
      })"
     class="grid grid-cols-1 md:grid-cols-3 gap-6"
 >
@@ -39,24 +62,79 @@
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Product Information</h3>
                 <div>
                     <x-input-label for="name" :value="__('Product Name')" /> <span class="text-red-500">*</span>
-                    <x-text-input type="text" name="name" id="name" class="mt-1 block w-full" :value="old('name', $product->name ?? '')" required autofocus />
+                    <x-text-input type="text" name="name" id="name" class="mt-1 block w-full" :value="old('name', $product->name)" required autofocus />
                     <x-input-error :messages="$errors->get('name')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="slug" :value="__('Slug')" />
-                    <x-text-input type="text" name="slug" id="slug" class="mt-1 block w-full" :value="old('slug', $product->slug ?? '')" aria-describedby="slug-description"/>
+                    <x-text-input type="text" name="slug" id="slug" class="mt-1 block w-full" :value="old('slug', $product->slug)" aria-describedby="slug-description"/>
                      <p class="mt-2 text-sm text-gray-500" id="slug-description">Leave blank to auto-generate. Slugs should contain only letters, numbers, and hyphens.</p>
                     <x-input-error :messages="$errors->get('slug')" class="mt-2" />
                 </div>
+
+                {{-- === SHORT DESCRIPTION === --}}
                 <div>
-                    <x-input-label for="description" :value="__('Description')" />
+                    <x-input-label for="short_description" :value="__('Short Description')" />
+                    <textarea id="short_description" name="short_description" rows="3"
+                              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm @error('short_description') border-red-500 @enderror"
+                    >{{ old('short_description', $product->short_description) }}</textarea>
+                    <x-input-error :messages="$errors->get('short_description')" class="mt-2" />
+                    <p class="mt-1 text-xs text-gray-500">A brief summary, often shown on product listings or quick views (max 500 chars).</p>
+                </div>
+                {{-- === END SHORT DESCRIPTION === --}}
+
+                <div>
+                    <x-input-label for="description" :value="__('Full Description')" />
                     <textarea id="description" name="description" rows="5"
-                              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('description') border-red-500 @enderror"
-                    >{{ old('description', $product->description ?? '') }}</textarea>
+                              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm @error('description') border-red-500 @enderror"
+                    >{{ old('description', $product->description) }}</textarea>
                     <x-input-error :messages="$errors->get('description')" class="mt-2" />
                 </div>
             </div>
         </div>
+
+        {{-- === SPECIFICATIONS CARD === --}}
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6 space-y-6">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-medium leading-6 text-gray-900">Specifications</h3>
+                    <button type="button" @click="addSpecification"
+                            class="inline-flex items-center rounded-md bg-pink-50 px-2.5 py-1.5 text-xs font-semibold text-pink-700 shadow-sm hover:bg-pink-100">
+                        <x-heroicon-s-plus class="-ml-0.5 mr-1 h-4 w-4"/> Add Specification
+                    </button>
+                </div>
+                <p class="text-sm text-gray-500 -mt-4">Define key features or technical details (e.g., Material: Cotton, Warranty: 1 Year).</p>
+
+                <div id="specifications-container" class="space-y-4">
+                    <template x-for="(spec, index) in specifications" :key="spec.clientId">
+                        <div class="grid grid-cols-1 sm:grid-cols-11 gap-x-3 items-end">
+                            <div class="sm:col-span-5">
+                                <x-input-label ::for="`spec_key_${spec.clientId}`" value="Spec Name / Key" class="text-xs"/>
+                                <x-text-input type="text" ::name="`spec_keys[${index}]`" ::id="`spec_key_${spec.clientId}`"
+                                       x-model="spec.key" placeholder="e.g., Material"
+                                       class="mt-1 block w-full text-sm"/>
+                            </div>
+                            <div class="sm:col-span-5 mt-2 sm:mt-0">
+                                <x-input-label ::for="`spec_value_${spec.clientId}`" value="Spec Value" class="text-xs"/>
+                                <x-text-input type="text" ::name="`spec_values[${index}]`" ::id="`spec_value_${spec.clientId}`"
+                                       x-model="spec.value" placeholder="e.g., Cotton"
+                                       class="mt-1 block w-full text-sm"/>
+                            </div>
+                            <div class="sm:col-span-1 mt-2 sm:mt-0 flex items-end">
+                                <button type="button" @click="removeSpecification(index)"
+                                        class="p-1.5 text-red-500 hover:text-red-700 rounded-md hover:bg-red-50" title="Remove Specification">
+                                    <x-heroicon-o-trash class="w-4 h-4"/>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <p x-show="specifications.length === 0" class="text-sm text-gray-500 italic">No specifications added yet.</p>
+                {{-- Hidden input to ensure 'specifications' key is sent even if all are removed by JS --}}
+                <input type="hidden" name="specifications_submitted_flag" value="1">
+            </div>
+        </div>
+        {{-- === END SPECIFICATIONS CARD === --}}
 
         {{-- Pricing Card --}}
         <div class="bg-white shadow sm:rounded-lg">
@@ -371,6 +449,22 @@
                    </div>
                 </div>
 
+                {{-- === BRAND SELECTION === --}}
+                <div class="pt-4 border-t border-dashed border-gray-200">
+                    <x-input-label for="brand_id" :value="__('Brand')" />
+                    <select id="brand_id" name="brand_id"
+                            class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-pink-500 focus:outline-none focus:ring-pink-500 sm:text-sm @error('brand_id') border-red-500 @enderror">
+                        <option value="">-- Select Brand (Optional) --</option>
+                        @foreach($brandsForSelect as $brandOption)
+                            <option value="{{ $brandOption->id }}" {{ old('brand_id', $product->brand_id) == $brandOption->id ? 'selected' : '' }}>
+                                {{ $brandOption->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <x-input-error :messages="$errors->get('brand_id')" class="mt-2" />
+                    <a href="{{ route('admin.brands.create') }}" target="_blank" class="mt-2 inline-block text-sm text-pink-600 hover:underline">Add new brand</a>
+                </div>
+
                  {{-- Category Selection --}}
                  <div>
                      <x-input-label :value="__('Categories')" />
@@ -537,7 +631,7 @@
     </div>
 </div>
 
-{{-- JavaScript for dynamic elements --}}
+{{-- dynamic elements --}}
 @push('scripts')
 <script>
     // Helper function to calculate the Cartesian product (combinations)
@@ -571,6 +665,8 @@
             selectedAttributeIds: [], // Will be populated by init, ensure they are numbers
             selectedValues: {}, // Object keyed by attributeId, value is array of selected value IDs: { 1: [10, 11], 2: [20] }
             variants: [], // Array of variant objects: { id: null|int, clientId: '...', attributeValueIds: [10, 20], price: 0, sku: '', quantity: 0, markedForDeletion: false }
+
+            specifications: [],
 
             // --- Initialization ---
             init() {
@@ -700,6 +796,18 @@
                      // This toggle mainly controls UI visibility. Backend handles logic based on submission.
                      console.log('Variant mode toggled:', isVariantMode);
                  });
+
+                // === Initialize Specifications ===
+                if (Array.isArray(config.initialSpecifications)) {
+                    config.initialSpecifications.forEach(spec => {
+                        this.specifications.push({
+                            clientId: `spec_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                            key: spec.key || '',
+                            value: spec.value || ''
+                        });
+                    });
+                }
+                console.log('Initial Specifications for form:', JSON.parse(JSON.stringify(this.specifications)));
             },
 
             // --- Helper Methods ---
@@ -744,6 +852,21 @@
                 }).sort().join(' / '); // Sort values alphabetically for consistent display
             },
 
+            // === Specification Methods ===
+            addSpecification() {
+                this.specifications.push({
+                    clientId: `spec_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                    key: '',
+                    value: ''
+                });
+                this.$nextTick(() => { // Focus the new key input
+                    const newKeyInput = document.querySelector(`#specifications-container > div:last-child input[name^="spec_keys"]`);
+                    if (newKeyInput) newKeyInput.focus();
+                });
+            },
+            removeSpecification(index) {
+                this.specifications.splice(index, 1);
+            },
 
             // --- Core Logic ---
             generateVariants() {

@@ -78,7 +78,7 @@
                                 <x-heroicon-o-magnifying-glass class="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                             </div>
                             <ul class="space-y-0.5 text-xs max-h-48 overflow-y-auto custom-scrollbar-mobile pr-1">
-                               {{-- @forelse($brands as $brand)
+                               @forelse($brands as $brand)
                                     <li x-show="searchBrand === '' || '{{ strtolower($brand->name) }}'.includes(searchBrand.toLowerCase())">
                                         <label class="flex items-center space-x-2 text-gray-600 hover:text-pink-700 cursor-pointer py-1 px-1 rounded hover:bg-pink-50">
                                             <input type="checkbox" name="brands[]" value="{{ $brand->slug }}"
@@ -90,7 +90,7 @@
                                     </li>
                                 @empty
                                     <li class="text-gray-500 italic px-1">No brands available.</li>
-                                @endforelse --}}
+                                @endforelse 
                             </ul>
                         </div>
                         <hr class="border-gray-100">

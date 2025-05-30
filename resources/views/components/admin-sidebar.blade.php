@@ -35,6 +35,7 @@
                 <x-admin-nav-item route="admin.products.index" icon="cube">Products</x-admin-nav-item>
                 <x-admin-nav-item route="admin.categories.index" icon="folder">Categories</x-admin-nav-item>
                 <x-admin-nav-item route="admin.attributes.index" icon="tag">Attributes</x-admin-nav-item>
+                <x-admin-nav-item route="admin.brands.index" icon="building-storefront">Brands</x-admin-nav-item>
             </x-admin-nav-dropdown>
 
             <x-admin-nav-item route="admin.orders.index" icon="shopping-cart" class="sidebar-nav-item" data-route-name="admin.orders.index">Orders</x-admin-nav-item>

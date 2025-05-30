@@ -1,11 +1,20 @@
 <x-admin-layout :title="'Edit Attribute: ' . $attribute->name">
 
-    <div class="py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-        <h1 class="text-2xl font-semibold text-gray-900">Edit Attribute: <span class="text-indigo-600">{{ $attribute->name }}</span></h1>
+    <div class="py-8 px-4 sm:px-6 lg:px-8 space-y-6"> {{-- Removed max-w-4xl mx-auto here, can be added back if desired for overall page constraint --}}
+        <div class="sm:flex sm:items-center sm:justify-between mb-6"> {{-- Flex container for title and back link --}}
+            <div class="min-w-0 flex-1">
+                <h1 class="text-2xl font-semibold text-gray-900">Edit Attribute: <span class="text-pink-600">{{ $attribute->name }}</span></h1> {{-- Changed indigo to pink for consistency --}}
+            </div>
+            <div class="mt-4 sm:mt-0 sm:ml-4">
+                <a href="{{ route('admin.attributes.index') }}" class="inline-flex items-center text-sm font-medium text-pink-600 hover:text-pink-800">
+                    <x-heroicon-s-arrow-left class="w-4 h-4 mr-1.5" />
+                    Back to Attributes
+                </a>
+            </div>
+        </div>
 
-         {{-- Add the session message display here --}}
          @include('admin.partials._session_messages')
-         
+
         <form action="{{ route('admin.attributes.update', $attribute->id) }}" method="POST">
             @csrf
             @method('PUT')
@@ -14,6 +23,7 @@
                 {{-- Attribute Name Section --}}
                 <div class="px-4 py-5 sm:p-6">
                      <h3 class="text-lg font-medium leading-6 text-gray-900 mb-1">Attribute Details</h3>
+                     {{-- Pass $attribute to the form include --}}
                      @include('admin.attributes._form', ['attribute' => $attribute])
                 </div>
 
@@ -22,20 +32,16 @@
                      <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Attribute Values</h3>
 
                      <div id="attribute-values-container" class="space-y-4">
-                        {{-- Loop through existing values --}}
                         @forelse($attribute->values as $index => $value)
                             <div class="flex items-center space-x-3 value-entry">
-                                 {{-- Hidden ID for existing values --}}
                                  <input type="hidden" name="values[{{ $index }}][id]" value="{{ $value->id }}">
-
                                  <div class="flex-1">
                                      <label for="value_{{ $value->id }}" class="sr-only">Value</label>
                                      <input type="text" name="values[{{ $index }}][value]" id="value_{{ $value->id }}"
                                             value="{{ old("values.{$index}.value", $value->value) }}" required placeholder="Enter value (e.g., Red, Small)"
-                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error("values.{$index}.value") border-red-500 @enderror">
+                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm @error("values.{$index}.value") border-red-500 @enderror">
                                      @error("values.{$index}.value") <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                                  </div>
-                                 {{-- Checkbox to mark for deletion --}}
                                  <div class="flex items-center">
                                       <input type="checkbox" name="delete_values[]" id="delete_value_{{ $value->id }}" value="{{ $value->id }}"
                                              class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500">
@@ -46,40 +52,36 @@
                             <p class="text-sm text-gray-500 italic">No values added yet.</p>
                         @endforelse
 
-                        {{-- Template for adding new values (hidden) --}}
                         <template id="new-value-template">
                              <div class="flex items-center space-x-3 value-entry new-value-entry">
                                  <div class="flex-1">
                                      <label class="sr-only">New Value</label>
-                                     <input type="text" name="new_values[][value]" required placeholder="Enter new value"
-                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                     <input type="text" name="new_values[][value]" {{-- Array syntax for new values --}}
+                                            required placeholder="Enter new value"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm">
                                  </div>
                                  <button type="button" onclick="this.closest('.value-entry').remove()"
                                          class="inline-flex items-center justify-center p-1.5 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" title="Remove">
-                                     <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                     <x-heroicon-s-x-mark class="h-4 w-4" /> {{-- Changed to X-Mark for consistency --}}
                                  </button>
                              </div>
                         </template>
                      </div>
 
-                      {{-- Button to add new value row --}}
                      <button type="button" id="add-value-button"
-                             class="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                         <svg class="-ml-1 mr-2 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                        </svg>
+                             class="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500">
+                         <x-heroicon-s-plus class="-ml-1 mr-2 h-5 w-5 text-gray-400" /> {{-- Changed to solid plus --}}
                         Add Value
                      </button>
                      @error('new_values.*.value') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
-                      @error('delete_values.*') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
+                     @error('delete_values.*') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
                 </div>
 
-                {{-- Form Actions --}}
                 <div class="bg-gray-50 px-4 py-3 text-right sm:px-6">
-                     <a href="{{ route('admin.attributes.index') }}" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                     <a href="{{ route('admin.attributes.index') }}" class="rounded-md bg-white py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500">
                         Cancel
                     </a>
-                    <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"> {{-- Changed indigo to pink --}}
                         Update Attribute
                     </button>
                 </div>
@@ -96,19 +98,22 @@
 
             if (container && template && addButton) {
                 addButton.addEventListener('click', function() {
-                    // Clone the template content
                     const clone = template.content.cloneNode(true);
-                    // Append the cloned row to the container
+                    const newIndex = Date.now(); // Use timestamp for a somewhat unique index for new items
+                    const input = clone.querySelector('input[name^="new_values"]');
+                    if (input) {
+                        // Update name to ensure it's unique enough for validation and old() helper
+                        // Although for new_values[][value], uniqueness of index isn't as critical as for existing `values[index][value]`
+                        input.name = `new_values[${newIndex}][value]`;
+                    }
                     container.appendChild(clone);
-
-                     // Focus the new input field
-                    const newInput = container.querySelector('.new-value-entry:last-of-type input[type="text"]');
-                    if (newInput) {
-                        newInput.focus();
+                    const newInputField = container.querySelector('.new-value-entry:last-of-type input[type="text"]');
+                    if (newInputField) {
+                        newInputField.focus();
                     }
                 });
             } else {
-                console.error("Could not find container, template, or add button for attribute values.");
+                console.warn("Attribute values dynamic elements not found. Ensure IDs are correct: attribute-values-container, new-value-template, add-value-button");
             }
         });
     </script>

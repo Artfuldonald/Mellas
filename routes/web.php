@@ -1,5 +1,6 @@
 <?php
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\CartController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\ProfileController;
@@ -14,9 +15,9 @@ use App\Http\Controllers\Admin\DiscountController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\AdminBrandController;
 use App\Http\Controllers\Admin\ShippingZoneController;
 use App\Http\Controllers\Webhook\MtnMomoWebhookController;
-use App\Http\Controllers\CartController;
 use App\Http\Controllers\ProductController as PublicProductController;
 
 // Public Routes
@@ -73,6 +74,9 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
     Route::resource('categories', CategoryController::class);
 
     Route::resource('products', ProductController::class);
+
+     // Brand Resource Routes (index, create, store, etc.) 
+    Route::resource('brands', AdminBrandController::class);
     
     // Stock Adjustment Routes
     // For simple product
@@ -86,10 +90,10 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
     Route::resource('attributes', AttributeController::class);
     
     Route::resource('orders', OrderController::class)->except([
-        'create', 'store', 'destroy' // Exclude destroy unless you really need it
+        'create', 'store',  
     ]);
 
-    // If you want destroy later:
+    //want destroy later:
         // Route::delete('orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
     //});
 

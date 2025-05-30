@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Brand;
 use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Support\Js;
@@ -32,6 +33,14 @@ class ProductController extends Controller
 
         $activeCategory = null;
 
+        // === BRAND FILTER LOGIC ===
+        if ($request->filled('brands') && is_array($request->input('brands'))) {
+            $brandSlugs = $request->input('brands');
+            $query->whereHas('brand', function ($q) use ($brandSlugs) {
+                $q->whereIn('slug', $brandSlugs)->where('is_active', true);
+            });
+        }
+
         // --- Filtering by Category ---
         if ($request->filled('category')) {
             $categorySlug = $request->input('category');
@@ -41,14 +50,12 @@ class ProductController extends Controller
             });
         }
 
-        // --- Filtering by Brand ---
-        if ($request->filled('brands') && is_array($request->input('brands'))) {
-            $brandSlugs = $request->input('brands');
-            // Assuming Brand model has a 'slug' column
-            $query->whereHas('brand', function ($q) use ($brandSlugs) { // Assumes 'brand' relationship on Product model
-                $q->whereIn('slug', $brandSlugs);
-            });
-        }
+        // === FETCH BRANDS FOR FILTER ===
+        $brandsForFilter = Brand::where('is_active', true)
+                                ->whereHas('products', fn($q) => $q->where('is_active', true)) // Only show brands with active products
+                                ->withCount(['products' => fn($q) => $q->where('is_active', true)]) // Count only active products
+                                ->orderBy('name')
+                                ->get(['id', 'name', 'slug']);
 
         // --- Filtering by Price Range ---
         if ($request->filled('price_min')) {

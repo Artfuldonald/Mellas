@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Models\Brand;
 use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Support\Js;
@@ -9,14 +10,14 @@ use App\Models\Attribute;
 use Illuminate\Http\Request;
 use App\Models\AttributeValue;
 use App\Models\ProductVariant;
+use App\Models\StockAdjustment; 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;   
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;  
 use Illuminate\Support\Str;          
 use Illuminate\Support\Facades\Storage; 
-use App\Models\StockAdjustment; 
-use Illuminate\Support\Facades\Auth;
 
 class ProductController extends Controller
 {
@@ -84,11 +85,16 @@ class ProductController extends Controller
     public function create()
     {
         $categories = Category::orderBy('name')->get();
-        $product = new Product();
-        // Fetch all attributes with their values for the form selector
-        $allAttributes = Attribute::with('values')->orderBy('name')->get(); // <-- ADD THIS LINE
-        // Pass the new variable to the view
-        return view('admin.products.create', compact('categories', 'product', 'allAttributes')); // <-- ADD 'allAttributes'
+    $product = new Product();
+    $allAttributes = Attribute::with('values')->orderBy('name')->get();
+    $brands = Brand::where('is_active', true)->orderBy('name')->get(); 
+
+    return view('admin.products.create', compact(
+        'categories',
+        'product',
+        'allAttributes',
+        'brands' // 
+    ));
     }
 
     /**
@@ -106,6 +112,8 @@ class ProductController extends Controller
         'name' => 'required|string|max:255|unique:products,name',
         'slug' => 'nullable|string|max:255|unique:products,slug',
         'description' => 'nullable|string',
+        'brand_id' => 'nullable|integer|exists:brands,id',         
+        'short_description' => 'nullable|string|max:500', 
         'price' => 'required|numeric|min:0',
         'compare_at_price' => 'nullable|numeric|min:0|gt:price',
         'cost_price' => 'nullable|numeric|min:0',
@@ -152,22 +160,23 @@ class ProductController extends Controller
         $baseValidationRules['attribute_values.*.*'] = 'required|integer|exists:attribute_values,id';
     }
 
+    if ($request->has('specifications')) {
+        $baseValidationRules['specifications'] = 'nullable|array';        
+    }
+
     // --- Attempt Validation ---
     try {
-        $validatedData = $request->validate($baseValidationRules, [
-            // Custom messages
-            'variants.*.sku.required' => 'The SKU for each variant is required.',
-            // ... other variant messages ...
-            'weight_unit.required_with' => 'The weight unit is required when a weight is provided.', // Custom message
+        $validatedData = $request->validate($baseValidationRules, [           
+            'variants.*.sku.required' => 'The SKU for each variant is required.',            
+            'weight_unit.required_with' => 'The weight unit is required when a weight is provided.', 
             'weight_unit.in' => 'Please select a valid weight unit (kg, g, lb, oz).',
+            'brand_id.exists' => 'The selected brand is invalid.',
         ]);
     } catch (\Illuminate\Validation\ValidationException $e) {
         Log::error('Validation Failed:', $e->errors());
-        return back()->withErrors($e->validator)->withInput(); // Return with errors
+        return back()->withErrors($e->validator)->withInput(); 
     }
-
-
-    // --- Use Database Transaction ---
+   
     try {
         DB::beginTransaction();
 
@@ -201,6 +210,25 @@ class ProductController extends Controller
             $dataToCreate['sku'] = null;
             $dataToCreate['quantity'] = 0;
         }
+        //brand and shortdescription if provided 
+        $dataToCreate['brand_id'] = $validatedData['brand_id'] ?? null;
+        $dataToCreate['short_description'] = $validatedData['short_description'] ?? null;
+
+        ///specifications process
+        $processedSpecifications = [];
+        if ($request->filled('spec_keys') && $request->filled('spec_values')) {
+            $specKeys = $request->input('spec_keys');
+            $specValues = $request->input('spec_values');
+            foreach ($specKeys as $index => $key) {
+                if (!empty($key) && isset($specValues[$index]) && !empty($specValues[$index])) {
+                    // For simple key-value JSON:
+                    // $processedSpecifications[Str::slug($key, '_')] = $specValues[$index]; // Store with slugified key
+                    // For array of objects JSON:
+                    $processedSpecifications[] = ['key' => trim($key), 'value' => trim($specValues[$index])];
+                }
+            }
+        }
+        $dataToCreate['specifications'] = !empty($processedSpecifications) ? $processedSpecifications : null;
 
     // **** ADD LOGIC TO UNSET weight_unit IF EMPTY ****
             // This should be placed *after* validation and *before* Product::create()
@@ -231,7 +259,7 @@ class ProductController extends Controller
                 Log::info("No categories submitted or empty array, detached existing for Product ID: {$product->id}");
             }
 
-            // Handle Images (using your existing code)
+            // Handle Images 
             if ($request->hasFile('images')) {
                  Log::info("Processing images for Product ID: {$product->id}");
                  foreach ($request->file('images') as $index => $image) {
@@ -255,7 +283,7 @@ class ProductController extends Controller
                 Log::info("No images found in request for Product ID: {$product->id}");
             }
 
-             // Handle Videos (using your existing code)
+             // Handle Videos
             if ($request->hasFile('videos')) {
                  Log::info("Processing videos for Product ID: {$product->id}");
                  foreach ($request->file('videos') as $index => $video) {
@@ -283,8 +311,7 @@ class ProductController extends Controller
             }
 
 
-            // --- **** Handle Variants **** ---
-            // (Make sure you have the variant name generation logic from the previous response here)
+            // --- **** Handle Variants **** ---            
             if ($hasVariants && isset($validatedData['variants'])) {
                 Log::info("Processing variants for Product ID: {$product->id}");
 
@@ -309,7 +336,7 @@ class ProductController extends Controller
                          continue;
                      }
 
-                     // *** FIX: Generate Variant Name ***
+                     // *** Generate Variant Name ***
                      $variantNameParts = [];
                      $sortedValueIds = collect($variantInput['attribute_value_ids'])->sort()->values()->all();
                      foreach ($sortedValueIds as $valueId) {
@@ -322,7 +349,7 @@ class ProductController extends Controller
                      }
                      $variantName = implode(' / ', $variantNameParts);
                      Log::debug("Generated variant name for index {$index}: {$variantName}");
-                     // *** END FIX ***
+                     // *** END  ***
 
                      try {
                         $newVariant = $product->variants()->create([
@@ -383,17 +410,24 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         $categories = Category::orderBy('name')->get();
-        // Ensure relationships needed for the form are loaded efficiently
         $product->load([
             'categories',
-            'images' => fn($q) => $q->orderBy('position'), // Order images
-            'videos' => fn($q) => $q->orderBy('position'), // Order videos
-            'attributes', // Attributes linked TO THE PRODUCT
-            'variants.attributeValues.attribute' // Variants, their specific values, and the parent attribute of those values
+            'brand', 
+            'images' => fn($q) => $q->orderBy('position'),
+            'videos' => fn($q) => $q->orderBy('position'),
+            'attributes',
+            'variants.attributeValues.attribute'
         ]);
-        $allAttributes = Attribute::with('values')->orderBy('name')->get();
 
-        return view('admin.products.edit', compact('product', 'categories', 'allAttributes'));
+        $allAttributes = Attribute::with('values')->orderBy('name')->get();
+        $brands = Brand::where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.products.edit', compact(
+            'product',
+            'categories',
+            'allAttributes',
+            'brands' 
+        ));
     }
 /**
      * Update the form for the specified resource.
@@ -421,6 +455,8 @@ class ProductController extends Controller
                 Rule::unique('products')->ignore($product->id),
                 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'
             ],
+            'brand_id' => 'nullable|integer|exists:brands,id',       
+            'short_description' => 'nullable|string|max:500',  
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'compare_at_price' => 'nullable|numeric|min:0|gt:price',
@@ -512,12 +548,18 @@ $baseValidationRules['variants.*.id'] = [
              $baseValidationRules['attribute_values.*.*'] = 'sometimes|integer|exists:attribute_values,id';
          }
 
+            // Validate 'specifications' if submitted for update
+            if ($request->has('specifications')) {
+                $baseValidationRules['specifications'] = 'nullable|array';                
+            }
+
         // --- Attempt Validation ---
         try {
              $validatedData = $request->validate($baseValidationRules, [
                  // Add relevant custom messages for update if needed
                  'variants.*.sku.required' => 'The SKU for each variant is required.',
                  'variants.*.sku.distinct' => 'Variant SKUs must be unique within this submission.',
+                 'brand_id.exists' => 'The selected brand is invalid.',
                  // Other messages...
                  'weight_unit.required_with' => 'The weight unit is required when a weight is provided.',
                  'weight_unit.in' => 'Please select a valid weight unit (kg, g, lb, oz).',
@@ -526,6 +568,7 @@ $baseValidationRules['variants.*.id'] = [
             Log::error('Update Validation Failed:', $e->errors());
             return back()->withErrors($e->validator)->withInput();
         }
+        
 
          // --- Use Database Transaction ---
          try {
@@ -562,23 +605,40 @@ $baseValidationRules['variants.*.id'] = [
                  $dataToUpdate['quantity'] = 0;
              }
 
-            // **** SAME LOGIC TO UNSET weight_unit IF EMPTY ****
+             $dataToUpdate['brand_id'] = $validatedData['brand_id'] ?? null; // Allow unsetting brand
+             $dataToUpdate['short_description'] = $validatedData['short_description'] ?? null;
+
+            // Handle specifications for update
+            $processedSpecifications = [];
+            if ($request->filled('spec_keys') && $request->filled('spec_values')) {
+                $specKeys = $request->input('spec_keys');
+                $specValues = $request->input('spec_values');
+                foreach ($specKeys as $index => $key) {
+                    if (!empty($key) && isset($specValues[$index]) && !empty($specValues[$index])) {
+                        $processedSpecifications[] = ['key' => trim($key), 'value' => trim($specValues[$index])];
+                    }
+                }
+                $dataToUpdate['specifications'] = !empty($processedSpecifications) ? $processedSpecifications : null;
+            } elseif ($request->has('specifications') && empty($request->input('specifications')) && empty($request->input('spec_keys'))) {
+                // If 'specifications' was explicitly sent as empty (e.g., all fields cleared by JS)
+                // and no spec_keys were sent, set to null to clear them.
+                $dataToUpdate['specifications'] = null;
+            }
+            // If 'spec_keys' and 'spec_values' are not present in the request, 'specifications' won't be in $dataToUpdate,
+            // so the existing specifications will be preserved.
+            // === END ADDED/UPDATED FIELDS ===
+
+
+            //LOGIC TO UNSET weight_unit IF EMPTY
              if (array_key_exists('weight_unit', $dataToUpdate) && empty($dataToUpdate['weight_unit'])) {
-                 // If weight unit is submitted as empty, unset it.
-                 // If it wasn't submitted at all, it won't be in $dataToUpdate.
-                 // If weight is also empty, validation allows this. DB default will apply if unset.
-                 // If weight is present, validation requires a unit, so this code block won't be hit
-                 // unless validation logic changes.
+                 
                  unset($dataToUpdate['weight_unit']);
                  Log::debug('Weight unit was empty/null during update, removing from update data.');
              } else if (array_key_exists('weight_unit', $dataToUpdate) && !empty($dataToUpdate['weight_unit'])) {
-                 // If a valid unit IS provided, ensure it gets updated.
-                 // No action needed here, it's already in $dataToUpdate
-             } else {
-                  // If 'weight_unit' is NOT in $dataToUpdate (wasn't submitted), we don't change the existing value.
-                  // This handles cases where only 'weight' is updated without resubmitting the unit.
-             }
+                 
+             } 
              // **** END LOGIC ****
+           
 
 
             // --- Update Product ---
