@@ -32,9 +32,9 @@
                  </form>
 
                  {{-- Category Filter --}}
-                 <select id="category-filter" name="category_id" class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 md:w-auto">
+                 <select id="category-filter" name="category_id" ...>
                     <option value="">All Categories</option>
-                    @foreach($categories as $category)
+                    @foreach($categoriesForFilter as $category) {{-- Use $categoriesForFilter --}}
                         <option value="{{ $category->id }}" {{ request('category_id') == $category->id ? 'selected' : '' }}>
                             {{ $category->name }}
                         </option>

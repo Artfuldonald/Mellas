@@ -12,28 +12,37 @@
 @endif
 
 @php
-    $product = $product ?? new \App\Models\Product();
-    $selectedCategories = old('categories', isset($product) ? $product->categories->pluck('id')->toArray() : []);
-    $hasVariants = old('has_variants', isset($product) && ($product->variants()->exists() || $product->attributes()->exists()) );
-    $selectedAttributes = old('product_attributes', isset($product) ? $product->attributes->pluck('id')->map(fn($id) => (string)$id)->toArray() : []);
-    $initialVariants = isset($product) && $product->exists ? $product->variants()->with('attributeValues')->get() : collect();
-    $allAttributesForAlpine = $allAttributes ?? \App\Models\Attribute::with('values')->orderBy('name')->get();
-    $brandsForSelect = $brands ?? \App\Models\Brand::where('is_active', true)->orderBy('name')->get();
+    $product = $product ?? new \App\Models\Product(); 
+    $selectedCategories = old('categories', $product->categories->pluck('id')->toArray() ?? []);
+   
+    $productHasVariantsLoaded = $product->exists && $product->relationLoaded('variants') && $product->variants->isNotEmpty();
+    $productHasAttributesAssociated = $product->exists && $product->relationLoaded('attributes') && $product->attributes->isNotEmpty();
+    // $product->attributes()->exists() is used by your Alpine init for hasVariants, so it implies product might have attributes set for variants
+    // For the initial determination of the toggle, if attributes are set (even if no variants generated yet), we consider it as "has variants" mode.
+    // The Alpine's hasVariants can then be toggled by the user.
+
+    $hasVariants = old(
+        'has_variants', 
+        ($productHasVariantsLoaded || $productHasAttributesAssociated) 
+    );   
+    $selectedAttributes = old('product_attributes', $product->attributes->pluck('id')->map(fn($id) => (string)$id)->toArray() ?? []);    
+    $initialVariants = $product->exists && $product->relationLoaded('variants') ? $product->variants : collect();    
+    $allAttributesForAlpine = $allAttributes ?? \App\Models\Attribute::with(['values' => fn($q) => $q->select(['id', 'attribute_id', 'value'])->orderBy('value')])->orderBy('name')->get(['id', 'name']);
+    $brandsForSelect = $brandsForSelect ?? \App\Models\Brand::where('is_active', true)->orderBy('name')->get(['id', 'name']);
     $jsProductId = $product->exists ? $product->id : null;
 
+    
     $formSpecifications = [];
-    if (!empty(old('spec_keys'))) { // Repopulate from old input if validation failed
+    if (!empty(old('spec_keys'))) {
         foreach (old('spec_keys') as $index => $key) {
             if (!empty($key) && isset(old('spec_values')[$index])) {
                 $formSpecifications[] = ['key' => $key, 'value' => old('spec_values')[$index]];
             }
         }
-    } elseif ($product->specifications) {
-        // If product->specifications is already an array of ['key'=>..., 'value'=>...] objects:
+    } elseif ($product->exists && $product->specifications) { 
         if (is_array($product->specifications) && !empty($product->specifications) && isset($product->specifications[0]['key'])) {
             $formSpecifications = $product->specifications;
         }
-        // If product->specifications is an associative array, convert it
         elseif (is_array($product->specifications) && !empty($product->specifications) && !isset($product->specifications[0]['key'])) {
             foreach($product->specifications as $key => $value) {
                 $formSpecifications[] = ['key' => $key, 'value' => $value];
@@ -460,7 +469,7 @@
                                 {{ $brandOption->name }}
                             </option>
                         @endforeach
-                    </select>
+                        </select>
                     <x-input-error :messages="$errors->get('brand_id')" class="mt-2" />
                     <a href="{{ route('admin.brands.create') }}" target="_blank" class="mt-2 inline-block text-sm text-pink-600 hover:underline">Add new brand</a>
                 </div>

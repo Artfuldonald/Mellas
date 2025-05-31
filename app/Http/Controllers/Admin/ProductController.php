@@ -26,58 +26,58 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Product::with([
-            'categories',
-            'images' => fn($q) => $q->orderBy('position')->limit(1),
-            // We don't need all variants here if we calculate total stock with a subquery
-        ])
-        // Calculate total stock:
-        // For simple products, use products.quantity
-        // For products with variants, sum product_variants.quantity
-        ->select('products.*') // Select all columns from products table
-        ->selectSub(function ($query) {
-            // Subquery to sum variant quantities
-            $query->selectRaw('SUM(pv.quantity)')
-                  ->from('product_variants as pv')
-                  ->whereColumn('pv.product_id', 'products.id');
-        }, 'variants_total_quantity')
-        ->withCount('variants') // Still useful for knowing if it HAS variants
-        ->latest();
+        $productBaseColumns = [
+            'products.id', 'products.name', 'products.slug', 'products.price',
+            'products.sku', 'products.quantity', 'products.is_active', 'products.is_featured',
+            'products.created_at' 
+        ];
 
-        // filtering logic
+        $query = Product::select($productBaseColumns) // Select specific columns
+            ->with([
+                'categories' => fn($q) => $q->select(['categories.id', 'categories.name']),
+                'images' => fn($q) => $q->select(['id', 'product_id', 'path', 'alt'])->orderBy('position')->limit(1),
+            ])
+            ->selectSub(function ($subQuery) {
+                $subQuery->selectRaw('SUM(pv.quantity)')
+                      ->from('product_variants as pv')
+                      ->whereColumn('pv.product_id', 'products.id');
+            }, 'variants_total_quantity')
+            ->withCount('variants')
+            ->latest('products.created_at'); 
+
+        // Filtering logic
         if ($request->filled('search')) {
              $searchTerm = $request->input('search');
              $query->where(function ($q) use ($searchTerm) {
-                 $q->where('products.name', 'like', "%{$searchTerm}%") // Qualify column name
+                 $q->where('products.name', 'like', "%{$searchTerm}%")
                    ->orWhere('products.sku', 'like', "%{$searchTerm}%")
                    ->orWhereHas('variants', function ($vq) use ($searchTerm) {
-                       $vq->where('sku', 'like', "%{$searchTerm}%");
+                       $vq->select('product_variants.id')->where('sku', 'like', "%{$searchTerm}%"); 
                    });
              });
         }
         if ($request->filled('category_id')) {
              $categoryId = $request->input('category_id');
              $query->whereHas('categories', function ($q) use ($categoryId) {
-                 $q->where('categories.id', $categoryId);
+                 $q->select('categories.id')->where('categories.id', $categoryId); 
              });
         }
 
         $products = $query->paginate(15)->withQueryString();
 
-        // Add a 'display_stock' accessor to each product for easier view logic
         $products->each(function ($product) {
             if ($product->variants_count > 0) {
-                // If variants_total_quantity is null (no variants found by subquery, though variants_count > 0 is odd)
-                // it means something is off, or no variants have quantity. Default to 0.
                 $product->display_stock = $product->variants_total_quantity ?? 0;
             } else {
                 $product->display_stock = $product->quantity;
             }
         });
 
-        $categories = Category::orderBy('name')->get();
-        return view('admin.products.index', compact('products', 'categories'));
-}
+       
+        $categoriesForFilter = Category::orderBy('name')->get(['id', 'name']);
+
+        return view('admin.products.index', compact('products', 'categoriesForFilter')); 
+    }
 
     /**
      * Show the form for creating a new resource.
@@ -244,7 +244,7 @@ class ProductController extends Controller
 
             // --- 3. Check data just before creating the Product model ---
              Log::debug('Data for Product::create:', $dataToCreate);
-            // dd($dataToCreate);
+             //dd($dataToCreate);
 
             // --- Create Product ---
             $product = Product::create($dataToCreate);
@@ -409,24 +409,50 @@ class ProductController extends Controller
      */
     public function edit(Product $product)
     {
-        $categories = Category::orderBy('name')->get();
+        $categories = Category::orderBy('name')->get(['id', 'name', 'parent_id']);
+       
         $product->load([
-            'categories',
-            'brand', 
-            'images' => fn($q) => $q->orderBy('position'),
-            'videos' => fn($q) => $q->orderBy('position'),
-            'attributes',
-            'variants.attributeValues.attribute'
+            'categories:id', 
+            'brand:id,name', 
+            'images' => fn($q) => $q->select(['id', 'product_id', 'path', 'alt', 'position'])->orderBy('position'),
+            'videos' => fn($q) => $q->select(['id', 'product_id', 'path', 'title', 'description', 'thumbnail_path', 'position'])->orderBy('position'),
+            'attributes:id,name', 
+            'variants' => function ($query) {
+                $query->select(['id', 'product_id', 'name', 'sku', 'price', 'quantity']) // From product_variants table
+                      ->with([
+                          'attributeValues' => function ($q_val) {
+                              // Select from attribute_values table and also join the pivot table columns
+                              $q_val->select(['attribute_values.id', 'attribute_values.attribute_id', 'attribute_values.value'])
+                                    ->with(['attribute' => fn($q_attr) => $q_attr->select(['id', 'name'])]); // From attributes table (parent of value)
+                          }
+                      ]);
+            },
         ]);
 
-        $allAttributes = Attribute::with('values')->orderBy('name')->get();
-        $brands = Brand::where('is_active', true)->orderBy('name')->get();
+        //"Variant Attributes" multi-select and configuring their values
+        $allAttributes = Attribute::with(['values' => function($query) {
+                                $query->select(['id', 'attribute_id', 'value'])->orderBy('value');
+                            }])
+                            ->orderBy('name')
+                            ->get(['id', 'name']);
 
+        //"Brand" select dropdown
+        $brandsForSelect = Brand::where('is_active', true) 
+                            ->orderBy('name')
+                            ->get(['id', 'name']);
+        
+                            // ------ DEBUGGING POINT ------
+     Log::debug("Editing Product ID: " . $product->id);
+     Log::debug("Product's brand_id from attribute: " . $product->brand_id);
+     Log::debug("Loaded product->brand relation: ", $product->brand ? $product->brand->toArray() : [null]);
+     Log::debug("Brands for Select Dropdown: ", $brandsForSelect->pluck('id', 'name')->toArray());
+    // ------ END DEBUGGING POINT ------
+                            
         return view('admin.products.edit', compact(
             'product',
             'categories',
             'allAttributes',
-            'brands' 
+            'brandsForSelect' 
         ));
     }
 /**
@@ -645,6 +671,7 @@ $baseValidationRules['variants.*.id'] = [
             Log::debug("Data for Product->update():", $dataToUpdate);
             $product->update($dataToUpdate);
             Log::info("Product base updated successfully: ID {$product->id}");
+             
 
             // --- Handle Relationships and Files ---
 
