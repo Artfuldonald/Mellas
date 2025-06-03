@@ -6,77 +6,62 @@ use App\Models\Product;
 use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator; // Import Validator
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log; 
 
 class ReviewController extends Controller
 {
-    /**
-     * Store a newly created review in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Product  $product
-     * @return \Illuminate\Http\RedirectResponse
-     */
+    public function __construct()
+    {        
+        $this->middleware('auth')->only(['store']);
+    }
+
     public function store(Request $request, Product $product)
-    {
+    {     
+        $user = Auth::user();
+
         $validator = Validator::make($request->all(), [
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
             'comment' => ['required', 'string', 'min:10', 'max:1000'],
-            'title' => ['nullable', 'string', 'max:100'],
-            // Guest fields (only required if user is not logged in)
-            'reviewer_name' => [Auth::guest() ? 'required' : 'nullable', 'string', 'max:255'],
-            'reviewer_email' => [Auth::guest() ? 'required' : 'nullable', 'email', 'max:255'],
         ]);
 
         if ($validator->fails()) {
-            return redirect()->to(url()->previous() . '#reviews-form-section') // Or specific route to PDP
+            return redirect()->to(url()->previous() . '#reviews-form-section')
                              ->withErrors($validator)
                              ->withInput();
         }
-
-        // Check if the authenticated user has already reviewed this product (optional)
-        if (Auth::check()) {
-            $existingReview = Review::where('product_id', $product->id)
-                                    ->where('user_id', Auth::id())
-                                    ->first();
-            if ($existingReview) {
-                return redirect()->to(url()->previous() . '#reviews-form-section')
-                                 ->with('error', 'You have already reviewed this product.')
-                                 ->withInput();
-            }
-        } else {
-            // For guest, you might check by email if you want to limit one review per email (more complex)
+        
+        $existingReview = Review::where('product_id', $product->id)
+                                ->where('user_id', $user->id)
+                                ->first();
+        if ($existingReview) {
+            return redirect()->to(url()->previous() . '#reviews-form-section')
+                             ->with('error', 'You have already reviewed this product.')
+                             ->withInput();
         }
 
+        try {
+            $review = new Review();
+            $review->product_id = $product->id;
+            $review->user_id = $user->id; // User is authenticated
+            $review->reviewer_name = $user->name; // Use authenticated user's name
+            $review->reviewer_email = $user->email; // Use authenticated user's email
+            $review->rating = $request->input('rating');
+            $review->comment = $request->input('comment');
+            // 'title' is removed
 
-        $review = new Review();
-        $review->product_id = $product->id;
-        $review->rating = $request->input('rating');
-        $review->comment = $request->input('comment');
-        $review->title = $request->input('title');
+            $review->is_approved = config('settings.reviews.auto_approve', false); // Or your default policy
 
-        if (Auth::check()) {
-            $review->user_id = Auth::id();
-            // For reviewer_name and reviewer_email, you could still allow override or fetch from user profile
-            $review->reviewer_name = Auth::user()->name; // Or $request->input('reviewer_name', Auth::user()->name);
-            $review->reviewer_email = Auth::user()->email; // Or $request->input('reviewer_email', Auth::user()->email);
-        } else {
-            $review->reviewer_name = $request->input('reviewer_name');
-            $review->reviewer_email = $request->input('reviewer_email');
+            $review->save();
+
+            return redirect()->to(url()->previous() . '#reviews')
+                             ->with('success', 'Thank you! Your review has been submitted' . (!$review->is_approved ? ' and is awaiting approval.' : '.'));
+
+        } catch (\Exception $e) {
+            Log::error("Error submitting review for product {$product->id} by user {$user->id}: " . $e->getMessage());
+            return redirect()->to(url()->previous() . '#reviews-form-section')
+                             ->with('error', 'There was an error submitting your review. Please try again.')
+                             ->withInput();
         }
-
-        // Set 'is_approved' based on your site's policy
-        // For example, auto-approve if a setting is enabled, otherwise default to false for moderation
-        $review->is_approved = config('settings.reviews.auto_approve', false); // Example: get from config
-        // Or simply: $review->is_approved = false; // Always requires moderation
-
-        $review->save();
-
-        // You might want to send a notification to admin for new review moderation
-
-        return redirect()->to(url()->previous() . '#reviews') // Or specific route to PDP, linking to reviews tab
-                         ->with('success', 'Thank you! Your review has been submitted' . (!$review->is_approved ? ' and is awaiting approval.' : '.'));
     }
-
-    // You might add other methods here later like edit, update, destroy for user's own reviews or admin management
 }

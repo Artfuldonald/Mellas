@@ -27,11 +27,16 @@ class Brand extends Model
     public function products(): HasMany {
         return $this->hasMany(Product::class);
     }
-    // Accessor for logo URL
+    
     public function getLogoUrlAttribute(){
         if ($this->logo_path && Storage::disk('public')->exists($this->logo_path)) {
             return Storage::url($this->logo_path);
         }
-        return null; // Or a default placeholder
+        return null; 
+    }
+       
+    public function getRouteKeyName()
+    {
+        return 'slug'; 
     }
 }

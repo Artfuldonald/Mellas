@@ -1,19 +1,24 @@
 @props([
-    'name', // Unique name to identify the modal
-    'show' => false, // Whether to show initially (usually false, controlled by JS)
-    'maxWidth' => '2xl', // Controls the width class
-    'focusable' => false // If true, focuses the first element on open
+    'name', 
+    'show' => false, 
+    'maxWidth' => '2xl', 
+    'focusable' => false 
 ])
 
 @php
-// Tailwind classes for different max widths
-$maxWidth = [
+$maxWidthClass = [ 
     'sm' => 'sm:max-w-sm',
     'md' => 'sm:max-w-md',
     'lg' => 'sm:max-w-lg',
     'xl' => 'sm:max-w-xl',
     '2xl' => 'sm:max-w-2xl',
-][$maxWidth ?? '2xl']; // Use provided or default to '2xl'
+    '3xl' => 'sm:max-w-3xl', 
+    '4xl' => 'sm:max-w-4xl',
+    '5xl' => 'sm:max-w-5xl',
+    '6xl' => 'sm:max-w-6xl',  
+    '7xl' => 'sm:max-w-7xl',
+    'full' => 'sm:max-w-full', 
+][$maxWidth ?? '2xl']; 
 @endphp
 
 {{--

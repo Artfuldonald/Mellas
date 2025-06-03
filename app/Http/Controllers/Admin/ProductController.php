@@ -32,17 +32,19 @@ class ProductController extends Controller
             'products.created_at' 
         ];
 
-        $query = Product::select($productBaseColumns) // Select specific columns
+        $query = Product::select($productBaseColumns)
             ->with([
                 'categories' => fn($q) => $q->select(['categories.id', 'categories.name']),
-                'images' => fn($q) => $q->select(['id', 'product_id', 'path', 'alt'])->orderBy('position')->limit(1),
+                'images' => fn($q) => $q->select(['id', 'product_id', 'path', 'alt'])->orderBy('position')->limit(1),               
+                'variants' => fn($q_variant) => $q_variant->select(['id', 'product_id', 'name', 'sku', 'price', 'quantity'])
+                                                          ->orderBy('name'), 
             ])
             ->selectSub(function ($subQuery) {
                 $subQuery->selectRaw('SUM(pv.quantity)')
                       ->from('product_variants as pv')
                       ->whereColumn('pv.product_id', 'products.id');
             }, 'variants_total_quantity')
-            ->withCount('variants')
+            ->withCount('variants') 
             ->latest('products.created_at'); 
 
         // Filtering logic

@@ -2,6 +2,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WishlistController;
@@ -36,6 +37,10 @@ Route::get('/products/{product:slug}', [PublicProductController::class, 'show'])
 
 // Route for submitting reviews
 Route::post('/products/{product}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
+
+// Route for client brands
+Route::get('/brands', [BrandController::class, 'index'])->name('brands.index'); // Page to list all brands
+Route::get('/brands/{brand:slug}', [BrandController::class, 'show'])->name('brands.show');
 
 Route::middleware(['auth'])->prefix('wishlist')->name('wishlist.')->group(function () {
     Route::get('/', [WishlistController::class, 'index'])->name('index');
