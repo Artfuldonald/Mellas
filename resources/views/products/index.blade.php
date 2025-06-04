@@ -273,23 +273,22 @@
                         </div>
                     </div>
                 @else
-                    {{-- Product Grid: Aim for ~219px card width.
-                         If content area is ~712px:
-                         712 / 3 columns = ~237px per column. Minus gaps, this gets close.
-                    --}}
-                    <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-                        @php $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : []; @endphp
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                        {{--
+                            - grid-cols-1: 1 card per row on extra small screens (default)
+                            - sm:grid-cols-2: 2 cards per row on small screens and up
+                            - md:grid-cols-3: 3 cards per row on medium screens and up
+                            - lg:grid-cols-4: 4 cards per row on large screens and up
+                            - gap-4 md:gap-6: Adjust spacing between cards as needed
+                        --}}
                         @foreach($products as $product)
-                            {{-- This is your main product card for the listing page --}}
                             <x-product-card :product="$product" :userWishlistProductIds="$userWishlistProductIds" />
                         @endforeach
                     </div>
 
                     @if ($products->hasPages())
-                        <div class="mt-8 sm:mt-10 pt-6 sm:pt-8 border-t border-gray-200">
-                            <div class="pagination-wrapper">
-                                {{ $products->links() }}
-                            </div>
+                        <div class="mt-12 pt-8 border-t border-pink-100">
+                            {{ $products->links() }}
                         </div>
                     @endif
                 @endif

@@ -29,123 +29,100 @@
     </div>
 
     <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <div class="lg:grid lg:grid-cols-12 lg:gap-x-8 xl:gap-x-12 items-start max-w-7xl mx-auto"> {{-- Main page constraint --}}
+        <div class="lg:grid lg:grid-cols-12 lg:gap-x-8 xl:gap-x-12 items-start max-w-7xl mx-auto">
 
-            {{-- Left Column: Product Image & Main Info Card (will contain Alpine component) --}}
+            {{-- Left Column: Contains the main product card which itself contains the Alpine component --}}
             <div class="lg:col-span-8 xl:col-span-9 mb-8 lg:mb-0">
-                {{-- This outer div will get x-data="productVariantSelector(...)" --}}
+                {{-- THIS IS THE MAIN ALPINE COMPONENT FOR PRODUCT DETAILS, VARIANTS, AND ADD TO CART --}}
                 <div class="md:flex md:space-x-6 lg:space-x-8 bg-white p-4 sm:p-6 rounded-xl shadow-xl"
                      x-data="productVariantSelector({
                         productId: {{ $product->id }},
                         productName: {{ Js::from($product->name) }},
                         productBasePrice: {{ (float)$product->price }},
-                        productBaseQuantity: {{ $product->quantity ?? ($product->variants->isEmpty() && !$product->attributes->count() ? 0 : -1) }}, // -1 if variants/attributes exist
-                        allVariantsData: {{ $variantDataForJs }},
-                        options: {{ $optionsDataForJs }}
+                        productBaseQuantity: {{ $product->variants->isEmpty() && !$product->attributes->count() ? ($product->quantity ?? 0) : -1 }}, // -1 signifies variants mode or attributes present
+                        allVariantsData: {{ $variantDataForJs }}, // From ProductController@show
+                        options: {{ $optionsDataForJs }}        // From ProductController@show
                      })">
 
-                    {{-- Image Gallery Section --}}
-                    <div class="md:w-1/2 lg:w-5/12 flex-shrink-0 mb-6 md:mb-0 md:sticky md:top-24 self-start">
-                        {{-- Alpine component for image switching --}}
-                        <div x-data="{
-                                images: {{ Js::from($product->images->map(fn($img) => ['id' => $img->id, 'url' => $img->image_url ?? asset('images/placeholder.png'), 'alt' => $img->alt ?? $product->name])) }},
-                                currentImage: {{ Js::from($product->images->first()->image_url ?? asset('images/placeholder.png')) }},
-                                currentImageAlt: {{ Js::from($product->images->first()?->alt ?? $product->name) }},
-                                changeImage(image) {
-                                    this.currentImage = image.url;
-                                    this.currentImageAlt = image.alt;
-                                }
-                            }" class="w-full">
-                             <div class="aspect-w-1 aspect-h-1 w-full bg-pink-50 rounded-xl shadow-lg overflow-hidden border border-pink-100 relative group">
-                                <img :src="currentImage" :alt="currentImageAlt" class="w-full h-full object-contain object-center cursor-pointer" x-ref="mainImageForZoom" @click="$dispatch('open-modal', 'product-image-zoom-modal')">
-                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                    <x-heroicon-o-magnifying-glass-plus class="w-12 h-12 text-white"/>
-                                </div>
+                    {{-- Image Gallery Section (can be its own nested Alpine component if complex) --}}
+                    <div class="md:w-1/2 lg:w-5/12 flex-shrink-0 mb-6 md:mb-0 md:sticky md:top-24 self-start"
+                         x-data="{
+                            images: {{ Js::from($product->images->map(fn($img) => ['id' => $img->id, 'url' => $img->image_url ?? asset('images/placeholder.png'), 'alt' => $img->alt ?? $product->name])) }},
+                            currentImage: {{ Js::from($product->images->first()->image_url ?? asset('images/placeholder.png')) }},
+                            currentImageAlt: {{ Js::from($product->images->first()?->alt ?? $product->name) }},
+                            changeImage(image) {
+                                this.currentImage = image.url;
+                                this.currentImageAlt = image.alt;
+                            }
+                         }">
+                         <div class="aspect-w-1 aspect-h-1 w-full bg-pink-50 rounded-xl shadow-lg overflow-hidden border border-pink-100 relative group">
+                            <img :src="currentImage" :alt="currentImageAlt" class="w-full h-full object-contain object-center cursor-pointer"
+                                 x-ref="mainImageForZoom"
+                                 @click="$dispatch('open-modal', { name: 'product-image-zoom-modal', imageUrl: currentImage })">
+                            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <x-heroicon-o-magnifying-glass-plus class="w-12 h-12 text-white"/>
                             </div>
-                            @if($product->images->count() > 1)
-                                <div class="mt-3 grid grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
-                                    <template x-for="image in images" :key="image.id">
-                                        <button @click="changeImage(image)"
-                                                :class="{ 'ring-2 ring-pink-500 ring-offset-1': currentImage === image.url }"
-                                                class="aspect-w-1 aspect-h-1 bg-white rounded-md sm:rounded-lg overflow-hidden focus:outline-none border hover:border-pink-300 transition-all">
-                                            <img :src="image.url" :alt="image.alt + ' thumbnail'" class="w-full h-full object-cover object-center">
-                                        </button>
-                                    </template>
-                                </div>
-                            @endif
                         </div>
+                        @if($product->images->count() > 1)
+                            <div class="mt-3 grid grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
+                                <template x-for="image in images" :key="image.id">
+                                    <button @click="changeImage(image)"
+                                            :class="{ 'ring-2 ring-pink-500 ring-offset-1': currentImage === image.url }"
+                                            class="aspect-w-1 aspect-h-1 bg-white rounded-md sm:rounded-lg overflow-hidden focus:outline-none border hover:border-pink-300 transition-all">
+                                        <img :src="image.url" :alt="image.alt + ' thumbnail'" class="w-full h-full object-cover object-center">
+                                    </button>
+                                </template>
+                            </div>
+                        @endif
                     </div>
 
-                    {{-- Product Information Section (within the same Alpine component scope) --}}
+                    {{-- Product Information Section (PART OF productVariantSelector SCOPE) --}}
                     <div class="md:w-1/2 lg:w-7/12 flex-grow flex flex-col">
                         <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">{{ $product->name }}</h1>
 
                         @if($product->brand)
-                            <p class="text-sm text-gray-500 mt-1">
-                                Brand: <a href="{{ route('brands.show', $product->brand->slug) }}" class="text-pink-600 hover:underline">{{ $product->brand->name }}</a>
-                            </p>
+                            <p class="text-sm text-gray-500 mt-1">Brand: <a href="{{ $product->brand->logo_url ? route('brands.show', $product->brand->slug) : '#' }}" class="text-pink-600 hover:underline">{{ $product->brand->name }}</a></p>
                         @endif
 
                         {{-- Reviews Summary --}}
                         <div class="mt-3">
                             @if ($product->approved_reviews_count > 0)
                                 <div class="flex items-center">
-                                    <div class="flex items-center">
-                                        @for ($i = 1; $i <= 5; $i++)
-                                            <x-heroicon-s-star class="h-5 w-5 {{ $i <= round($product->average_rating ?? 0) ? 'text-yellow-400' : 'text-gray-300' }}" />
-                                        @endfor
-                                    </div>
-                                    <a href="#reviews" @click.prevent="document.getElementById('reviews')?.scrollIntoView({behavior:'smooth'}); activeTab='reviews';" class="ml-2 text-sm font-medium text-pink-600 hover:text-pink-500">
-                                        ({{ $product->approved_reviews_count }} {{ Str::plural('review', $product->approved_reviews_count) }})
-                                    </a>
+                                    <div class="flex items-center">@for ($i = 1; $i <= 5; $i++) <x-heroicon-s-star class="h-5 w-5 {{ $i <= round($product->average_rating ?? 0) ? 'text-yellow-400' : 'text-gray-300' }}" /> @endfor</div>
+                                    <a href="#reviews" @click.prevent="document.getElementById('reviews')?.scrollIntoView({behavior:'smooth'}); $dispatch('set-active-tab', 'reviews');" class="ml-2 text-sm font-medium text-pink-600 hover:text-pink-500">({{ $product->approved_reviews_count }} {{ Str::plural('review', $product->approved_reviews_count) }})</a>
                                 </div>
                             @else
                                 <div class="flex items-center">
-                                    <div class="flex items-center">
-                                        @for ($i = 1; $i <= 5; $i++) <x-heroicon-o-star class="h-5 w-5 text-gray-300" /> @endfor
-                                    </div>
-                                    <a href="#reviews" @click.prevent="document.getElementById('reviews')?.scrollIntoView({behavior:'smooth'}); activeTab='reviews';" class="ml-2 text-sm font-medium text-pink-600 hover:text-pink-500">Be the first to review</a>
+                                    <div class="flex items-center">@for ($i = 1; $i <= 5; $i++) <x-heroicon-o-star class="h-5 w-5 text-gray-300" /> @endfor</div>
+                                    <a href="#reviews" @click.prevent="document.getElementById('reviews')?.scrollIntoView({behavior:'smooth'}); $dispatch('set-active-tab', 'reviews');" class="ml-2 text-sm font-medium text-pink-600 hover:text-pink-500">Be the first to review</a>
                                 </div>
                             @endif
                         </div>
 
-                        {{-- Price --}}
+                        {{-- Price Display (controlled by Alpine) --}}
                         <div class="mt-4">
                             <p class="text-3xl sm:text-4xl font-extrabold text-pink-600" x-text="`GH₵ ${currentPrice.toFixed(2)}`"></p>
-                            @if($product->compare_at_price && $product->compare_at_price > $product->price)
-                                <div class="flex items-center mt-1">
-                                    <span class="text-sm text-gray-500 line-through">GH₵ {{ number_format($product->compare_at_price, 2) }}</span>
-                                    @php
-                                        $discountPercentage = round((($product->compare_at_price - $product->price) / $product->compare_at_price) * 100);
-                                    @endphp
-                                    @if($discountPercentage > 0)
-                                    <span class="ml-2 bg-pink-100 text-pink-700 text-xs font-semibold px-2 py-0.5 rounded">
-                                        -{{ $discountPercentage }}%
-                                    </span>
-                                    @endif
-                                </div>
-                            @endif
+                            {{-- Compare at price logic here if needed, can also be dynamic --}}
                         </div>
 
-                        {{-- "Items Left" for selected variant or base product --}}
+                        {{-- "Items Left" Text (controlled by Alpine) --}}
                         <div class="mt-2 text-sm min-h-[20px]">
-                             <p x-show="itemsLeftText" x-text="itemsLeftText" class="text-orange-600 font-medium animate-pulse"></p>
+                             <p x-show="itemsLeftText" x-text="itemsLeftText" class="text-orange-600 font-medium"></p>
                         </div>
 
-                        {{-- Variant Options Selection UI (loops through 'options' from Alpine data) --}}
+                        {{-- Variant Options UI (controlled by Alpine) --}}
                         <div class="mt-6 space-y-5" x-show="!isSimpleProduct()">
-                            <template x-for="(attribute, attributeId) in options" :key="attributeId">
-                                <fieldset class="mt-2">
-                                    <legend class="text-sm font-medium text-gray-900 mb-1" x-text="attribute.name"></legend>
+                            <template x-for="(attributeData, attributeId) in options" :key="attributeId">
+                                <fieldset>
+                                    <legend class="text-sm font-medium text-gray-900 mb-1" x-text="attributeData.name"></legend>
                                     <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                        <template x-for="value in attribute.values" :key="value.id">
+                                        <template x-for="value in attributeData.values" :key="value.id">
                                             <label @click="selectOption(attributeId, value.id)"
                                                    :class="{
                                                         'ring-2 ring-pink-500 border-pink-500 bg-pink-50 text-pink-700 font-semibold': isSelected(attributeId, value.id),
                                                         'border-gray-300 text-gray-700 hover:bg-gray-50': !isSelected(attributeId, value.id)
                                                    }"
                                                    class="border rounded-md py-2.5 px-3 flex items-center justify-center text-xs sm:text-sm uppercase cursor-pointer focus:outline-none transition-all">
-                                                {{-- Hidden radio not strictly needed if label click handles it, but good for accessibility/forms --}}
                                                 <input type="radio" :name="`option_${attributeId}`" :value="value.id" x-model="selectedOptions[attributeId]" class="sr-only">
                                                 <span x-text="value.name"></span>
                                             </label>
@@ -156,44 +133,35 @@
                         </div>
 
                         {{-- Quantity Input --}}
-                        <div class="mt-8" x-show="canCurrentlyAddToCartFromSelection() || (isSimpleProduct() && productBaseQuantity > 0)">
+                        <div class="mt-8" x-show="isAnythingPurchasable() && (isSimpleProduct() || (currentSelectedVariantOnPage && currentSelectedVariantOnPage.quantity > 0) )">
                             <label for="pdp-quantity" class="block text-sm font-medium text-gray-900 mb-1">Quantity</label>
                             <div class="relative flex items-center max-w-[8rem]">
                                 <button type="button" @click="quantity > 1 ? quantity-- : null" class="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-l-lg p-2.5 h-10 focus:ring-gray-100 focus:ring-2 focus:outline-none disabled:opacity-50" :disabled="quantity <= 1">
                                     <x-heroicon-s-minus class="w-4 h-4 text-gray-900"/>
                                 </button>
                                 <input type="number" id="pdp-quantity" name="quantity" x-model.number="quantity" min="1"
-                                       :max="currentSelectedVariant ? currentSelectedVariant.quantity : productBaseQuantity"
+                                       :max="currentSelectedVariantOnPage ? currentSelectedVariantOnPage.quantity : productBaseQuantity"
                                        class="bg-gray-50 border-x-0 border-gray-300 h-10 text-center text-gray-900 text-sm focus:ring-pink-500 focus:border-pink-500 block w-full py-2.5" required>
-                                <button type="button" @click="(currentSelectedVariant && quantity < currentSelectedVariant.quantity) || (!currentSelectedVariant && isSimpleProduct() && quantity < productBaseQuantity) ? quantity++ : null"
+                                <button type="button" @click="(currentSelectedVariantOnPage && quantity < currentSelectedVariantOnPage.quantity) || (isSimpleProduct() && quantity < productBaseQuantity) ? quantity++ : null"
                                         class="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-r-lg p-2.5 h-10 focus:ring-gray-100 focus:ring-2 focus:outline-none disabled:opacity-50"
-                                        :disabled="(currentSelectedVariant && quantity >= currentSelectedVariant.quantity) || (!currentSelectedVariant && isSimpleProduct() && quantity >= productBaseQuantity)">
+                                        :disabled="(currentSelectedVariantOnPage && quantity >= currentSelectedVariantOnPage.quantity) || (isSimpleProduct() && quantity >= productBaseQuantity)">
                                     <x-heroicon-s-plus class="w-4 h-4 text-gray-900"/>
                                 </button>
                             </div>
                         </div>
 
-                        {{-- Action Messages (Success/Error from Add to Cart) --}}
-                        <div x-show="cartActionMessage"
-                             :class="{
-                                'bg-green-100 border-green-400 text-green-700': cartActionMessageType === 'success',
-                                'bg-red-100 border-red-400 text-red-700': cartActionMessageType === 'error'
-                             }"
-                             class="border px-4 py-3 rounded relative my-4 text-sm" role="alert" x-transition>
-                            <span class="block sm:inline" x-text="cartActionMessage"></span>
-                        </div>
 
-                        {{-- Add to Cart Button --}}
-                        <div class="mt-8 flex-grow flex flex-col justify-end"> {{-- Push button to bottom of this column --}}
+                        {{-- Add to Cart Button & Messages (controlled by Alpine) --}}
+                        <div x-show="cartActionMessage"
+                             :class="{ 'bg-green-100 ...': cartActionMessageType === 'success', 'bg-red-100 ...': cartActionMessageType === 'error' }"
+                             class="border px-4 py-3 rounded relative my-4 text-sm" role="alert" x-transition>
+                            <span x-text="cartActionMessage"></span>
+                        </div>
+                        <div class="mt-8 flex-grow flex flex-col justify-end">
                             <button type="button" @click="handleAddToCartAttempt()"
-                                    :disabled="addToCartButtonText === 'Adding...' || !isAnyVariantInStock()"
-                                    class="w-full bg-pink-600 border border-transparent rounded-lg py-3.5 px-8 flex items-center justify-center text-base font-medium text-white hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors shadow-lg">
-                                <template x-if="addToCartButtonText === 'Adding...'">
-                                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                </template>
+                                    :disabled="addToCartButtonText === 'Adding...' || !isAnythingPurchasable()"
+                                    class="w-full bg-pink-600 ...">
+                                <template x-if="addToCartButtonText === 'Adding...'"><svg class="animate-spin ..."></svg></template>
                                 <span x-text="addToCartButtonText"></span>
                             </button>
                         </div>
@@ -206,18 +174,14 @@
 
                         {{-- Wishlist Button (as designed before) --}}
                         @auth
-                            @php $mainProductInWishlist = Auth::user()->hasInWishlist($product); @endphp
-                            <div class="mt-6 flex justify-start"> {{-- Changed to justify-start --}}
-                                <form action="{{ $mainProductInWishlist ? route('wishlist.remove', $product->id) : route('wishlist.add', $product->id) }}" method="POST">
-                                    @csrf
-                                    <button type="submit" class="text-sm font-medium text-pink-600 hover:text-pink-500 flex items-center">
-                                        @if($mainProductInWishlist)
-                                            <x-heroicon-s-heart class="w-5 h-5 mr-1.5 text-pink-500"/> Remove from Wishlist
-                                        @else
-                                            <x-heroicon-o-heart class="w-5 h-5 mr-1.5"/> Add to Wishlist
-                                        @endif
-                                    </button>
-                                </form>
+                            <div class="mt-6 flex justify-start"
+                                 x-data="wishlistButton({ productId: {{ $product->id }}, initialIsInWishlist: {{ Auth::user()->hasInWishlist($product) ? 'true' : 'false' }} })">
+                                <button @click="toggleWishlist" type="button" :disabled="isLoading" class="text-sm font-medium text-pink-600 hover:text-pink-500 flex items-center disabled:opacity-50">
+                                    <template x-if="isLoading"><svg class="animate-spin h-5 w-5 mr-1.5"></svg></template>
+                                    <template x-if="!isLoading && isInWishlist"><x-heroicon-s-heart class="w-5 h-5 mr-1.5 text-pink-500"/></template>
+                                    <template x-if="!isLoading && !isInWishlist"><x-heroicon-o-heart class="w-5 h-5 mr-1.5"/></template>
+                                    <span x-text="isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'"></span>
+                                </button>
                             </div>
                         @else
                             <div class="mt-6 flex justify-start">
@@ -304,19 +268,22 @@
 
     {{-- MODALS --}}
     {{-- Product Image Zoom Modal --}}
-    <x-modal name="product-image-zoom-modal" maxWidth="4xl" :show="false" focusable>
-        <div class="p-2 sm:p-4 bg-white rounded-lg shadow-xl relative">
-            <img x-data="{ zoomedImageUrlDynamic: '' }"
-                 @open-modal.window="if ($event.detail === 'product-image-zoom-modal' || (typeof $event.detail === 'object' && $event.detail.name === 'product-image-zoom-modal')) {
-                    zoomedImageUrlDynamic = document.querySelector('[x-ref=\'mainImageForZoom\']')?.src || '';
-                 }"
-                 :src="zoomedImageUrlDynamic"
-                 alt="Zoomed product image"
-                 class="max-w-full max-h-[85vh] object-contain mx-auto">
-            <button @click="$dispatch('close')" class="absolute top-2 right-2 sm:top-3 sm:right-3 text-gray-600 hover:text-pink-700 p-1 bg-white/70 rounded-full shadow hover:bg-white transition">
-                <x-heroicon-o-x-mark class="w-6 h-6 sm:w-7 sm:h-7"/>
-            </button>
-        </div>
+    <x-modal name="product-image-zoom-modal" maxWidth="4xl" :show="$errors->any() ? true : false" focusable> {{-- :show is problematic here for dynamic opening --}}
+    <div class="p-2 sm:p-4 bg-white rounded-lg shadow-xl relative">
+        {{-- Changed x-data and src binding --}}
+        <img x-data="{ zoomedImageUrl: '' }"
+             @open-modal.window="if ($event.detail === 'product-image-zoom-modal' || (typeof $event.detail === 'object' && $event.detail.name === 'product-image-zoom-modal')) {
+                // Get the current large image URL from the main display when modal opens
+                const mainImgElement = document.querySelector('[x-ref=\'mainImageForZoom\']');
+                if (mainImgElement) zoomedImageUrl = mainImgElement.src;
+             }"
+             :src="zoomedImageUrl"
+             alt="Zoomed product image"
+             class="max-w-full max-h-[85vh] object-contain mx-auto">
+        <button @click="$dispatch('close')" class="absolute top-2 right-2 sm:top-3 sm:right-3 text-gray-600 hover:text-pink-700 p-1 bg-white/70 rounded-full shadow hover:bg-white transition">
+            <x-heroicon-o-x-mark class="w-6 h-6 sm:w-7 sm:h-7"/>
+        </button>
+    </div>
     </x-modal>
 
     {{-- "Please Select a Variation" Modal (Contents controlled by productVariantSelector Alpine component) --}}
@@ -559,7 +526,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         // --- ADD TO CART ACTIONS ---
-        handleAddToCartAttempt() {
+        handleAddToCartAttempt() {A
             this.cartActionMessage = ''; this.cartActionMessageType = ''; // Clear previous messages
 
             if (this.isSimpleProduct()) {

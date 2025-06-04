@@ -56,55 +56,36 @@
         <h3 class="text-xl font-semibold text-gray-900 mb-2">Write Your Review</h3>
         <p class="text-sm text-gray-600 mb-6">Share your experience with other customers.</p>
 
-        @if (session('success'))
-            <div class="mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
-                {{ session('success') }}
-            </div>
-        @endif
-        @if (session('error'))
-            <div class="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
-                {{ session('error') }}
-            </div>
-        @endif
-        @if ($errors->any())
-            <div class="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
-                <strong class="font-bold">Please correct the errors below:</strong>
-                <ul class="mt-1 list-disc list-inside">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
+        {{-- Session Messages & Validation Errors --}}
+        @include('admin.partials._session_messages') {{-- Assuming this partial also handles $errors --}}
 
         <form action="{{ route('reviews.store', $product->id) }}" method="POST" class="space-y-5">
             @csrf
-            <div>
+            {{-- ALPINE STAR RATING COMPONENT --}}
+            <div x-data="{ rating: {{ (int)old('rating', 0) }}, hoverRating: 0, maxStars: 5 }">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Your Rating <span class="text-red-500">*</span></label>
-                <div class="mt-1 flex items-center space-x-0.5" x-data="{
-                    rating: {{ (int)old('rating', 0) }},
-                    hoverRating: 0,
-                    maxRating: 5,
-                    setRating(value) { this.rating = value; },
-                    setHoverRating(value) { this.hoverRating = value; },
-                    clearHoverRating() { this.hoverRating = 0; }
-                }">
-                    <input type="number" name="rating" x-model.number="rating" class="hidden" required min="1" max="5"> {{-- This input submits the value --}}
-
-                    <template x-for="starIndex in maxRating" :key="starIndex">
+                <input type="number" name="rating" x-model.number="rating" class="sr-only" required min="1" max="5">
+                <div class="mt-1 flex items-center space-x-0.5">
+                    <template x-for="i in maxStars" :key="i">
                         <button type="button"
-                                @click="setRating(starIndex)"
-                                @mouseenter="setHoverRating(starIndex)"
-                                @mouseleave="clearHoverRating()"
-                                class="p-0.5 focus:outline-none rounded-full focus:ring-2 focus:ring-pink-400 focus:ring-offset-1"
-                                :aria-label="`Rate ${starIndex} out of ${maxRating}`">
-                            
+                                @click="rating = i"
+                                @mouseenter="hoverRating = i"
+                                @mouseleave="hoverRating = 0"
+                                class="p-0.5 focus:outline-none rounded-full focus:ring-1 focus:ring-pink-400 focus:ring-offset-1"
+                                :aria-label="`Rate ${i} out of ${maxStars}`">
+                            <svg class="w-7 h-7 transition-colors"
+                                 :class="(hoverRating >= i || rating >= i) ? 'text-yellow-400' : 'text-gray-300'"
+                                 fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                            </svg>
                         </button>
                     </template>
                 </div>
                 @error('rating') <p class="text-red-500 text-xs mt-1.5">{{ $message }}</p> @enderror
             </div>
+            {{-- END ALPINE STAR RATING --}}
 
+            {{-- Comment Textarea --}}
             <div>
                 <label for="comment" class="block text-sm font-medium text-gray-700">Your Review <span class="text-red-500">*</span></label>
                 <textarea id="comment" name="comment" rows="4" required
@@ -112,6 +93,7 @@
                 @error('comment') <p class="text-red-500 text-xs mt-1.5">{{ $message }}</p> @enderror
             </div>
 
+            {{-- Submit Button --}}
             <div>
                 <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-transparent bg-pink-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 transition-colors">
                     Submit Review

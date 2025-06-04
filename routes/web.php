@@ -42,11 +42,10 @@ Route::post('/products/{product}/reviews', [ReviewController::class, 'store'])->
 Route::get('/brands', [BrandController::class, 'index'])->name('brands.index'); // Page to list all brands
 Route::get('/brands/{brand:slug}', [BrandController::class, 'show'])->name('brands.show');
 
+//WISHLIST
 Route::middleware(['auth'])->prefix('wishlist')->name('wishlist.')->group(function () {
-    Route::get('/', [WishlistController::class, 'index'])->name('index');
+    Route::get('/', [WishlistController::class, 'index'])->name('index');   
     Route::post('/add/{product}', [WishlistController::class, 'add'])->name('add');
-    // Using POST for remove as well, though DELETE verb is more semantically correct for APIs
-    // For simplicity in forms, POST is often used.
     Route::post('/remove/{product}', [WishlistController::class, 'remove'])->name('remove');
 });
 

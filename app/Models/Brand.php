@@ -29,6 +29,7 @@ class Brand extends Model
     }
     
     public function getLogoUrlAttribute(){
+        
         if ($this->logo_path && Storage::disk('public')->exists($this->logo_path)) {
             return Storage::url($this->logo_path);
         }

@@ -211,6 +211,8 @@
             </div>
             {{-- ***** END MAIN MOBILE NAVIGATION OFF-CANVAS MENU ***** --}}
 
+            <x-toast-notifications />
+            
         </div>{{-- End min-h-screen --}}
 
         @stack('modals')
@@ -333,6 +335,114 @@
                     });
                 }
             });
+
+             // --- ALPINE.JS COMPONENT DEFINITIONS ---
+            document.addEventListener('alpine:init', () => {
+                // 1. Wishlist Button Component
+                Alpine.data('wishlistButton', (config) => ({
+                    productId: config.productId,
+                    isInWishlist: config.initialIsInWishlist || false,
+                    isLoading: false,
+                    buttonTitle: '',
+
+                    init() {
+                        this.updateTitle();
+                    },
+                    updateTitle() {
+                        this.buttonTitle = this.isInWishlist ? 'Remove from wishlist' : 'Add to wishlist';
+                    },
+                    toggleWishlist() {
+                        if (this.isLoading) return;
+                        this.isLoading = true;
+
+                        const endpoint = this.isInWishlist
+                            ? `{{ url('/wishlist/remove') }}/${this.productId}`
+                            : `{{ url('/wishlist/add') }}/${this.productId}`;
+
+                        fetch(endpoint, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json' // Usually not needed for POST with ID in URL only
+                            }
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(errData => { throw errData; });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.success !== undefined) {
+                                this.isInWishlist = data.is_in_wishlist;
+                                this.updateTitle();
+                                window.dispatchEvent(new CustomEvent('wishlist-updated', { detail: { count: data.wishlist_count } }));
+                                window.dispatchEvent(new CustomEvent('toast-show', { // Dispatch toast
+                                    detail: { type: data.success ? 'success' : (data.message.includes('already') ? 'info' : 'error'), message: data.message }
+                                }));
+                            } else {
+                                window.dispatchEvent(new CustomEvent('toast-show', {
+                                    detail: { type: 'error', message: 'Unexpected response from server.' }
+                                }));
+                            }
+                        })
+                        .catch(errorDataOrNetworkError => {
+                            console.error('Wishlist toggle AJAX error:', errorDataOrNetworkError);
+                            let msg = 'Could not update wishlist. Please try again.';
+                            if(errorDataOrNetworkError && errorDataOrNetworkError.message) {
+                                msg = errorDataOrNetworkError.message;
+                            }
+                            window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: msg } }));
+                        })
+                        .finally(() => {
+                            this.isLoading = false;
+                        });
+                    }
+                })); // End of wishlistButton
+
+                // 2. Toast Handler Component
+                Alpine.data('toastHandler', () => ({
+                    toasts: [],
+                    toastIdCounter: 0,
+                    defaultDuration: 3000, // Increased duration
+
+                    showToast(detail) {
+                        const id = this.toastIdCounter++;
+                        const type = detail.type || 'info';
+                        const message = detail.message || 'Notification';
+                        const title = detail.title || null;
+                        const duration = detail.duration || this.defaultDuration;
+
+                        const newToast = { id, message, title, type, visible: true, hovered: false, duration, timeoutId: null };
+                        this.toasts.push(newToast);
+                        this.setTimeout(newToast);
+                    },
+                    setTimeout(toast) {
+                        if (toast.timeoutId) clearTimeout(toast.timeoutId);
+                        toast.timeoutId = setTimeout(() => {
+                            if (!toast.hovered) { this.removeToast(toast.id); }
+                        }, toast.duration);
+                    },
+                    restartTimeout(toast) {
+                        if (toast.visible && !toast.hovered) { this.setTimeout(toast); }
+                    },
+                    removeToast(id) {
+                        const toast = this.toasts.find(t => t.id === id);
+                        if (toast) {
+                            toast.visible = false;
+                            setTimeout(() => {
+                                this.toasts = this.toasts.filter(t => t.id !== id);
+                            }, 300); // Match leave transition
+                        }
+                    },
+                    capitalizeFirst(string) {
+                        return string.charAt(0).toUpperCase() + string.slice(1);
+                    }
+                })); // End of toastHandler
+
+            }); // End of alpine:init
         </script>
+        
     </body>
 </html>
