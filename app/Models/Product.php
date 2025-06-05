@@ -8,10 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-
 class Product extends Model
 {
-    /** @use HasFactory<\Database\Factories\ProductFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -71,18 +69,14 @@ class Product extends Model
         return $this->hasMany(ProductImage::class);
     }
 
-    /**
-     * Get all of the product's reviews.
-     */
-    public function reviews(): HasMany // <-- Add this
+   
+    public function reviews(): HasMany 
     {
         return $this->hasMany(Review::class);
     }
 
-    /**
-     * Get approved reviews for the product.
-     */
-    public function approvedReviews(): HasMany // <-- Add this
+   
+    public function approvedReviews(): HasMany 
     {
         return $this->hasMany(Review::class)->where('is_approved', true);
     }
@@ -108,4 +102,5 @@ class Product extends Model
     {
         return $this->approvedReviews()->count();
     }
+     
 }

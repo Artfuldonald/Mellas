@@ -1,5 +1,4 @@
 <x-app-layout :title="$product->name">
-
     {{-- Breadcrumbs --}}
     <div class="bg-pink-50 border-b border-pink-200">
         <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -28,20 +27,20 @@
         </div>
     </div>
 
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">        
         <div class="lg:grid lg:grid-cols-12 lg:gap-x-8 xl:gap-x-12 items-start max-w-7xl mx-auto">
 
             {{-- Left Column: Contains the main product card which itself contains the Alpine component --}}
-            <div class="lg:col-span-8 xl:col-span-9 mb-8 lg:mb-0">
+            <div class="lg:col-span-8 mb-8 lg:mb-0">
                 {{-- THIS IS THE MAIN ALPINE COMPONENT FOR PRODUCT DETAILS, VARIANTS, AND ADD TO CART --}}
-                <div class="md:flex md:space-x-6 lg:space-x-8 bg-white p-4 sm:p-6 rounded-xl shadow-xl"
+                <div class="md:flex md:space-x-6 lg:space-x-8 bg-white p-4 sm:p-6 rounded-lg shadow-md" 
                      x-data="productVariantSelector({
                         productId: {{ $product->id }},
                         productName: {{ Js::from($product->name) }},
                         productBasePrice: {{ (float)$product->price }},
-                        productBaseQuantity: {{ $product->variants->isEmpty() && !$product->attributes->count() ? ($product->quantity ?? 0) : -1 }}, // -1 signifies variants mode or attributes present
-                        allVariantsData: {{ $variantDataForJs }}, // From ProductController@show
-                        options: {{ $optionsDataForJs }}        // From ProductController@show
+                        productBaseQuantity: {{ $product->variants->isEmpty() && !$product->attributes->count() ? ($product->quantity ?? 0) : -1 }},
+                        allVariantsData: {{ $variantDataForJs }},
+                        options: {{ $optionsDataForJs }}
                      })">
 
                     {{-- Image Gallery Section (can be its own nested Alpine component if complex) --}}
@@ -205,13 +204,20 @@
                             <button @click="activeTab = 'reviews'" id="reviews" :class="{ 'border-pink-500 text-pink-600': activeTab === 'reviews', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'reviews' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Reviews ({{ $product->approved_reviews_count }})</button>
                         </nav>
                     </div>
-                    <div class="mt-8">
-                        <div x-show="activeTab === 'description'" class="prose prose-pink max-w-none text-gray-600">{!! $product->description ?: '<p>No full description available for this product.</p>' !!}</div>
+                    <div class="mt-8 space-y-8"> {{-- Added space-y-8 for spacing between tab content if multiple are somehow shown, or just consistent structure --}}
+                        {{-- MODIFIED: Added card styling to Description tab panel --}}
+                        <div x-show="activeTab === 'description'" x-cloak
+                             class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                            <div class="prose prose-pink max-w-none text-gray-600">{!! $product->description ?: '<p>No full description available for this product.</p>' !!}</div>
+                        </div>
+
                         @if($product->specifications && count($product->specifications) > 0)
-                            <div x-show="activeTab === 'specifications'" x-cloak class="bg-white p-6 rounded-lg shadow">
+                            {{-- MODIFIED: Standardized padding and shadow for Specifications tab panel --}}
+                            <div x-show="activeTab === 'specifications'" x-cloak
+                                 class="bg-white p-4 sm:p-6 rounded-lg shadow-md"> {{-- Standardized p-4 sm:p-6 and shadow-md --}}
                                 <h3 class="text-lg font-medium text-gray-900 mb-4">Product Specifications</h3>
                                 <dl class="divide-y divide-gray-200">
-                                    @foreach($product->specifications as $spec) {{-- Assuming specs are array of {key, value} --}}
+                                    @foreach($product->specifications as $spec)
                                     <div class="py-3 sm:grid sm:grid-cols-3 sm:gap-4">
                                         <dt class="text-sm font-medium text-gray-700">{{ $spec['key'] }}</dt>
                                         <dd class="mt-1 text-sm text-gray-600 sm:mt-0 sm:col-span-2">{{ $spec['value'] }}</dd>
@@ -220,7 +226,10 @@
                                 </dl>
                             </div>
                         @endif
-                        <div x-show="activeTab === 'reviews'" x-cloak>
+
+                        {{-- MODIFIED: Added card styling to Reviews tab panel wrapper --}}
+                        <div x-show="activeTab === 'reviews'" x-cloak
+                             class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
                             @include('products.partials._reviews_section', ['reviews' => $product->approvedReviews, 'product' => $product])
                         </div>
                     </div>
@@ -229,18 +238,18 @@
 
 
             {{-- Right Column: Delivery, Seller Info etc. --}}
-            <aside class="lg:col-span-4 xl:col-span-3 mt-8 lg:mt-0">
+             <aside class="lg:col-span-4 mt-8 lg:mt-0">
                 <div class="space-y-6 sticky top-24">
-                    <div class="bg-white p-4 sm:p-6 shadow rounded-lg">
+                    {{-- Standardized shadow and rounding for consistency --}}
+                    <div class="bg-white p-4 sm:p-6 shadow-md rounded-lg"> {{-- Changed shadow to shadow-md --}}
                         <h3 class="text-sm font-semibold uppercase text-gray-700 mb-3 border-b pb-2">Delivery & Returns</h3>
                         <p class="text-xs text-gray-600">Details about delivery times, shipping costs, and return policies will go here.</p>
-                        {{-- Placeholder for Jumia-style location selectors and delivery estimates --}}
                     </div>
-                    @if($product->brand) {{-- Example: Show seller info if brand is considered the seller or link to brand page --}}
-                    <div class="bg-white p-4 sm:p-6 shadow rounded-lg">
+                    @if($product->brand)
+                    {{-- Standardized shadow and rounding for consistency --}}
+                    <div class="bg-white p-4 sm:p-6 shadow-md rounded-lg"> {{-- Changed shadow to shadow-md --}}
                         <h3 class="text-sm font-semibold uppercase text-gray-700 mb-3 border-b pb-2">Seller Information</h3>
                         <a href="{{ route('brands.show', $product->brand->slug) }}" class="font-medium text-pink-600 hover:underline">{{ $product->brand->name }}</a>
-                        {{-- More seller details could go here --}}
                     </div>
                     @endif
                 </div>
@@ -249,19 +258,48 @@
         </div> {{-- End Main Grid --}}
 
 
-        {{-- "You May Also Like" Section --}}
+       {{-- "You May Also Like" Section - Simple Grid --}}
         @if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
         <section aria-labelledby="related-products-heading" class="mt-16 lg:mt-24 max-w-7xl mx-auto">
             <h2 id="related-products-heading" class="text-2xl font-bold tracking-tight text-gray-900 text-center mb-8 sm:mb-10">
                 You May Also Like
             </h2>
-            <div class="grid grid-cols-1 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-x-6 xl:gap-x-8">
+
+            {{-- Simple Responsive Grid --}}
+            {{-- Adjust grid-cols-X as needed for different screen sizes --}}
+            <div class="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 xl:gap-x-8">
                 @foreach($relatedProducts as $relatedProductItem)
-                    <x-product-card :product="$relatedProductItem" :userWishlistProductIds="$userWishlistProductIds ?? []" />
+                    <div> {{-- Each item is a grid cell --}}
+                        {{-- Use your x-product-card-small component directly --}}
+                        <x-product-card-small :product="$relatedProductItem" :userWishlistProductIds="$userWishlistProductIds ?? []" />
+
+                        {{-- OR, for even more basic testing, use the yellow box again first: --}}
+                        {{--
+                        <div class="border bg-yellow-100 p-2 h-auto">
+                            <p>ID: {{ $relatedProductItem->id }}</p>
+                            <p>Name: {{ $relatedProductItem->name ?? 'N/A' }}</p>
+                            <p>Price: GH₵ {{ $relatedProductItem->price ?? 'N/A' }}</p>
+                            @if($relatedProductItem->images->first())
+                                <img src="{{ $relatedProductItem->images->first()->image_url }}" alt="{{ $relatedProductItem->name }}" class="w-24 h-24 object-contain my-2">
+                            @else
+                                <p>No Image</p>
+                            @endif
+                            @if($relatedProductItem->brand)
+                                <p>Brand: {{ $relatedProductItem->brand->name ?? 'N/A' }}</p>
+                            @endif
+                        </div>
+                        --}}
+                    </div>
                 @endforeach
             </div>
         </section>
+        @else
+            {{-- This part is good to keep if there truly are no related products --}}
+            <div class="mt-16 lg:mt-24 max-w-7xl mx-auto py-8 text-center">
+                <p class="text-gray-500">No related products to show at the moment.</p>
+            </div>
         @endif
+        {{-- End "You May Also Like" Section --}}
 
     </div> {{-- End Page Container --}}
 
@@ -526,7 +564,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         // --- ADD TO CART ACTIONS ---
-        handleAddToCartAttempt() {A
+        handleAddToCartAttempt() {
             this.cartActionMessage = ''; this.cartActionMessageType = ''; // Clear previous messages
 
             if (this.isSimpleProduct()) {
@@ -611,6 +649,96 @@ document.addEventListener('alpine:init', () => {
                 if (this.addToCartButtonText === 'Adding...') this.addToCartButtonText = originalButtonText; // Failsafe if updateButtonText didn't change it
                 setTimeout(() => { this.cartActionMessage = ''; this.cartActionMessageType = ''; }, 7000);
             });
+        }
+    }));
+});
+///THIS IS FOR CAROUSEL FUNCTIONALITY
+document.addEventListener('alpine:init', () => {
+    Alpine.data('carousel', (config) => ({
+        itemsCount: config.itemsCount || 0,
+        // config.initialItemsToShow = { mobile: 2, sm: 2, md: 3, lg: 4, xl: 5 }
+        // Provides number of items to show at different breakpoints
+        initialItemsToShow: config.initialItemsToShow || { mobile: 1, sm: 2, md: 3, lg: 4, xl: 4 },
+        itemsToShowCalculated: 4, // This will be dynamically set based on screen width
+        itemsToScroll: 1,         // How many items to scroll by (will be set to a full page)
+        currentIndex: 0,          // Index of the first item in the current view (0-indexed)
+
+        init() {
+            this.updateItemsToShowBasedOnScreenWidth();
+            this.itemsToScroll = this.itemsToShowCalculated; // Scroll by a full page
+
+            // Create a debounced version of the resize handler
+            const debouncedResizeHandler = Alpine.debounce(() => {
+                const oldItemsToShow = this.itemsToShowCalculated;
+                this.updateItemsToShowBasedOnScreenWidth();
+                this.itemsToScroll = this.itemsToShowCalculated;
+
+                // If the number of visible items changed, adjust currentIndex
+                if (oldItemsToShow !== this.itemsToShowCalculated) {
+                    // Ensure currentIndex is still valid and doesn't show empty space at the end
+                    if (this.currentIndex + this.itemsToShowCalculated > this.itemsCount) {
+                        this.currentIndex = Math.max(0, this.itemsCount - this.itemsToShowCalculated);
+                    }
+                }
+            }, 150); // 150ms debounce
+
+            window.addEventListener('resize', debouncedResizeHandler);
+
+            // console.log(`Carousel init: count=${this.itemsCount}, show=${this.itemsToShowCalculated}, scroll=${this.itemsToScroll}`);
+        },
+
+        updateItemsToShowBasedOnScreenWidth() {
+            const width = window.innerWidth;
+            if (width < 640) {        // Tailwind 'sm' breakpoint
+                this.itemsToShowCalculated = this.initialItemsToShow.mobile || 1;
+            } else if (width < 768) { // Tailwind 'md' breakpoint
+                this.itemsToShowCalculated = this.initialItemsToShow.sm || 2;
+            } else if (width < 1024) { // Tailwind 'lg' breakpoint
+                this.itemsToShowCalculated = this.initialItemsToShow.md || 3;
+            } else if (width < 1280) { // Tailwind 'xl' breakpoint
+                this.itemsToShowCalculated = this.initialItemsToShow.lg || 4;
+            } else {                  // Tailwind '2xl' and up
+                this.itemsToShowCalculated = this.initialItemsToShow.xl || (this.initialItemsToShow.lg || 4);
+            }
+            // Ensure itemsToShowCalculated is not more than itemsCount
+            if (this.itemsCount > 0) {
+                 this.itemsToShowCalculated = Math.min(this.itemsToShowCalculated, this.itemsCount);
+            } else {
+                 this.itemsToShowCalculated = 1; // Avoid division by zero if no items
+            }
+        },
+
+        get canScroll() {
+            // Scrolling is possible if there are more items than can be shown at once
+            return this.itemsCount > this.itemsToShowCalculated;
+        },
+
+        get canGoPrev() {
+            return this.currentIndex > 0;
+        },
+
+        get canGoNext() {
+            // Next is possible if the current index plus the number of items to scroll (a full page)
+            // is less than the total number of items.
+            return this.currentIndex + this.itemsToScroll < this.itemsCount &&
+                   this.currentIndex + this.itemsToShowCalculated < this.itemsCount;
+        },
+
+        prev() {
+            if (this.canGoPrev) {
+                this.currentIndex = Math.max(0, this.currentIndex - this.itemsToScroll);
+                // console.log('prev, new currentIndex', this.currentIndex);
+            }
+        },
+
+        next() {
+            if (this.canGoNext) {
+                // Advance current index by itemsToScroll
+                // Ensure it doesn't go beyond the last possible starting point for a full page view
+                let newIndex = this.currentIndex + this.itemsToScroll;
+                this.currentIndex = Math.min(newIndex, this.itemsCount - this.itemsToShowCalculated);
+                // console.log('next, new currentIndex', this.currentIndex);
+            }
         }
     }));
 });

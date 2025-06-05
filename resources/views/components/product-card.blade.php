@@ -64,8 +64,7 @@
         {{-- WISHLIST BUTTON - ALPINE DRIVEN --}}
         @auth
             {{-- Pass the calculated $_initialIsInWishlist_for_this_card to the Alpine component --}}
-            <div x-data="wishlistButton({ productId: {{ $product->id }}, initialIsInWishlist: {{ $_initialIsInWishlist_for_this_card ? 'true' : 'false' }} })"
-                 class="absolute top-1.5 right-1.5 z-10">
+            <div x-data="wishlistButton({ productId: {{ $product->id }}, initialIsInWishlist: {{ $_initialIsInWishlist_for_this_card ? 'true' : 'false' }} })" class="absolute top-1.5 right-1.5 z-10">
                 <button @click="toggleWishlist"
                         type="button"
                         :aria-label="buttonTitle"
@@ -91,8 +90,8 @@
     </div>
 
     {{-- Content Section --}}
-    <div class="p-2.5 flex flex-col flex-grow"> {{-- Reduced padding slightly --}}
-        <h3 class="text-xs font-normal text-gray-700 leading-tight mb-1 min-h-[32px] line-clamp-2"> {{-- Adjusted font-size and min-height --}}
+    <div class="p-2.5 flex flex-col flex-grow"> 
+        <h3 class="text-xs font-normal text-gray-700 leading-tight mb-1 min-h-[32px] line-clamp-2"> 
             <a href="{{ $productUrl }}" class="hover:text-pink-600">
                 {{ $name }}
             </a>
@@ -103,7 +102,7 @@
             <p class="text-base font-semibold text-gray-900 inline-block">GH₵ {{ number_format($price, 2) }}</p>
             @if($discountPercentage > 0)
                 <span class="text-[12px] text-gray-500 line-through ml-1.5">GH₵ {{ number_format($compareAtPrice, 2) }}</span>
-                <span class="ml-1.5 bg-pink-100 text-pink-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm">-{{ $discountPercentage }}%</span> {{-- Discount % next to strikethrough --}}
+                <span class="ml-1.5 bg-pink-100 text-pink-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm">-{{ $discountPercentage }}%</span> 
             @endif
         </div>
 
@@ -151,7 +150,7 @@
                         <input type="hidden" name="product_id" value="{{ $product->id }}">
                         <input type="hidden" name="quantity" value="1">
                         <button type="submit"
-                                class="block w-full text-center rounded bg-pink-600 px-2 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-pink-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600 transition-colors">
+                                class="block w-full text-center rounded bg-pink-600 px-2 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-pink-700 ...">                            
                             Add to Cart
                         </button>
                     </form>

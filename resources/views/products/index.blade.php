@@ -135,42 +135,14 @@
                                  </li>
                                 @endif
                             </ul>
-                        </div>
-
-                        {{-- Price Range Filter --}}
-                        <div class="filter-section">
-                            <h3 class="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wide">Price (GH₵)</h3>
-                            {{-- Basic Min/Max Inputs --}}
-                            <div class="flex items-center space-x-2 mb-2">
-                                <input type="number" name="price_min" placeholder="Min" value="{{ request('price_min') }}" class="w-full border-gray-300 rounded-md shadow-sm text-xs py-1.5 px-2 focus:ring-pink-500 focus:border-pink-500">
-                                <span class="text-gray-400">-</span>
-                                <input type="number" name="price_max" placeholder="Max" value="{{ request('price_max') }}" class="w-full border-gray-300 rounded-md shadow-sm text-xs py-1.5 px-2 focus:ring-pink-500 focus:border-pink-500">
-                            </div>
-                            {{-- TODO: Add a price range slider here using noUISlider or similar --}}
-                            <button type="submit" form="filterForm" class="w-full text-xs bg-pink-500 text-white py-1.5 rounded hover:bg-pink-600 transition">Apply</button>
-                        </div>
-                        <hr class="border-gray-100">
-
-                        {{-- Discount Percentage (Example) --}}
-                        <div class="filter-section">
-                            <h3 class="text-sm font-semibold text-gray-800 mb-2 uppercase tracking-wide">Discount Percentage</h3>
-                             <ul class="space-y-1 text-xs">
-                                @foreach(['80', '70', '50', '20'] as $discount)
-                                <li>
-                                    <label class="flex items-center space-x-2 text-gray-600 hover:text-pink-700 cursor-pointer py-1">
-                                        <input type="radio" name="discount_min" value="{{ $discount }}" class="rounded-full border-gray-300 text-pink-600 shadow-sm focus:ring-pink-500 h-3.5 w-3.5" {{ request('discount_min') == $discount ? 'checked' : '' }}>
-                                        <span>{{ $discount }}% or more</span>
-                                    </label>
-                                </li>
-                                @endforeach
-                            </ul>
-                        </div>
+                        </div>                       
+                       
                         {{-- Add more filters like "Shipped From" here --}}
 
                     </div>
                     {{-- Hidden form to submit all filters --}}
                     <form id="filterForm" action="{{ route('products.index') }}" method="GET" class="hidden">
-                        @foreach(request()->except(['price_min', 'price_max', 'discount_min', 'page', /* add other filter keys here */]) as $key => $val)
+                        @foreach(request()->except(['price_min', 'price_max', 'discount_min', 'page', 'brands']) as $key => $val)
                             @if(is_array($val))
                                 @foreach($val as $arrayVal)
                                     <input type="hidden" name="{{ $key }}[]" value="{{ $arrayVal }}">
