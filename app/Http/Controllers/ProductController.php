@@ -140,182 +140,126 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        if (!$product->is_active) {
-            abort(404);
+        if (!$product->is_active) { abort(404); }
+
+        // Eager load everything needed for the page
+        $product->load([
+            'categories' => fn($q) => $q->orderBy('categories.id'),
+            'images' => fn($q) => $q->orderBy('position'),
+            'brand:id,name,slug',
+            'variants' => fn($q) => $q->with(['attributeValues.attribute:id,name']),
+            'attributes.values',
+            'approvedReviews.user:id,name'
+        ]);
+        $product->loadCount(['variants', 'approvedReviews']);
+
+        $variantData = collect();
+        $optionsData = collect();
+        $hasVariantsForView = $product->variants_count > 1; 
+
+        Log::info("=== PRODUCT DEBUG START ===");
+        Log::info("Product ID: {$product->id}, Total Variants Found: {$product->variants_count}");
+
+        if ($product->variants_count === 1) {
+            // SINGLE-VARIANT LOGIC: Flatten it to look like a simple product
+            $singleVariant = $product->variants->first();
+            Log::info("Single variant detected (ID: {$singleVariant->id}). Flattening for view.");
+            
+            $product->price = $singleVariant->price;
+            $product->quantity = $singleVariant->quantity;
+            $product->sku = $singleVariant->sku;
+
+            // Optional: Append variant name to product name for clarity
+            $variantNameParts = $singleVariant->attributeValues->pluck('value');
+            if ($variantNameParts->isNotEmpty()) {
+                $product->name .= ' - ' . $variantNameParts->join(' / ');
+            }
+
+        } else if ($product->variants_count > 1) {
+            // MULTI-VARIANT LOGIC: Prepare data for Alpine
+            Log::info("Multi-variant product detected. Preparing variant and option data.");
+
+            $variantData = $product->variants->mapWithKeys(function ($variant) {
+                $key = $variant->attributeValues->sortBy('id')->pluck('id')->join('-');
+                return [$key => [
+                    'id' => $variant->id,
+                    'price' => (float) $variant->price,
+                    'quantity' => (int) $variant->quantity,
+                    'attributeValues' => $variant->attributeValues->map(fn($v) => ['id' => $v->id])->values()->all(),
+                ]];
+            });
+
+            $optionsData = $product->attributes->mapWithKeys(function ($attribute) {
+                return [$attribute->id => [
+                    'name' => $attribute->name,
+                    'values' => $attribute->values->map(fn($v) => ['id' => $v->id, 'name' => $v->value])->toArray()
+                ]];
+            });
         }
 
-        // Eager load for the main product being viewed
-        $product->load([
-            'categories' => fn($q) => $q->orderBy('categories.id'), // Get categories, ordered by their own ID
-            'images' => fn($q) => $q->orderBy('position'),
-            'videos' => fn($q) => $q->orderBy('position'),
-            'variants' => function ($query) {
-                $query->with(['attributeValues' => function($q) {
-                    $q->select('attribute_values.id', 'attribute_values.value', 'attribute_values.attribute_id')
-                      ->with('attribute:id,name');
-                }]);
-            },
-            'attributes' => fn($q) => $q->with('values:id,value,attribute_id')->orderBy('name'),
-            'approvedReviews.user:id,name',
-            'brand:id,name,slug' // Eager load the brand of the current product
-        ]);
+        Log::info("Options data structure: " . json_encode($optionsData, JSON_PRETTY_PRINT));
 
-        // Prepare variant and options data for JavaScript
-        $variantData = $product->variants->mapWithKeys(function ($variant) {
-            $key = $variant->attributeValues->sortBy('id')->pluck('id')->join('-');
-            return [$key => [
-                'id' => $variant->id,
-                'sku' => $variant->sku,
-                'price' => (float) $variant->price,
-                'quantity' => (int) $variant->quantity,
-                'is_active' => (bool) $variant->is_active,
-            ]];
-        });
+        // Base product data
+        $baseProductData = [
+            'id' => $product->id,
+            'name' => $product->name,
+            'price' => (float) $product->price,
+            'compare_at_price' => $product->compare_at_price ? (float) $product->compare_at_price : null,
+            'quantity' => (int) $product->quantity,
+            'is_active' => (bool) $product->is_active,
+            'has_variants' => $product->variants->count() > 0,
+            'is_available' => $product->is_active && $product->quantity > 0
+        ];
 
-        $optionsData = $product->attributes->mapWithKeys(function ($attribute) {
-            return [$attribute->id => [
-                'name' => $attribute->name,
-                'values' => $attribute->values->map(function($value) {
-                    return ['id' => $value->id, 'name' => $value->value];
-                })->toArray()
-            ]];
-        });
+        Log::info("Base product data: " . json_encode($baseProductData, JSON_PRETTY_PRINT));
+        Log::info("=== PRODUCT DEBUG END ===");
 
-        // --- "YOU MAY ALSO LIKE" LOGIC ---
-        $relatedProductsLimit = 10; // As per your Jumia example
+        // Your existing related products logic (keeping it clean)...
+        $relatedProductsLimit = 10;
         $relatedProducts = collect();
-        $loadedProductIds = [$product->id]; // Start with current product to exclude it
+        $loadedProductIds = [$product->id];
 
-        // Define a reusable closure for common eager loads for related product cards
         $withCardData = function (Builder $query) {
             return $query->with([
                 'images' => fn($q) => $q->orderBy('position')->limit(1),
-                'brand:id,name,slug', // Eager load brand for the card
+                'brand:id,name,slug',
             ])
-            ->withCount([
-                'approvedReviews as reviews_count',
-            ])
+            ->withCount(['approvedReviews as reviews_count'])
             ->withAvg('approvedReviews', 'rating');
         };
 
         $primaryCategory = $product->categories->first();
 
-        if ($primaryCategory) {
-            $primaryCategoryId = $primaryCategory->id;
-
-            // Query 1: Same Brand & Same Primary Category
-            if ($product->brand_id) {
-                $sameBrandAndCategoryQuery = Product::where('is_active', true)
+        if ($primaryCategory && $product->brand_id) {
+            $sameBrandProducts = $withCardData(
+                Product::where('is_active', true)
                     ->where('id', '!=', $product->id)
                     ->where('brand_id', $product->brand_id)
-                    ->whereHas('categories', fn (Builder $q) => $q->where('categories.id', $primaryCategoryId))
-                    ->whereNotIn('id', $loadedProductIds); // Ensure not already loaded
-
-                $sameBrandAndCategoryProducts = $withCardData($sameBrandAndCategoryQuery)
-                    ->inRandomOrder() // Or some other relevant ordering
-                    ->limit($relatedProductsLimit) // Fetch up to the limit
-                    ->get();
-
-                $relatedProducts = $relatedProducts->merge($sameBrandAndCategoryProducts);
-                $loadedProductIds = array_merge($loadedProductIds, $sameBrandAndCategoryProducts->pluck('id')->toArray());
-            }
-
-            // Query 2: Different Brand & Same Primary Category (if needed)
-            if ($relatedProducts->count() < $relatedProductsLimit) {
-                $differentBrandSameCategoryQuery = Product::where('is_active', true)
-                    ->where('id', '!=', $product->id)
-                    ->when($product->brand_id, function ($q) use ($product) { // If current product has a brand, exclude it
-                        $q->where('brand_id', '!=', $product->brand_id);
-                    })
-                    // If current product has NO brand, this shows all brands in category
-                    ->whereHas('categories', fn (Builder $q) => $q->where('categories.id', $primaryCategoryId))
-                    ->whereNotIn('id', $loadedProductIds); // Ensure not already loaded
-
-                $differentBrandSameCategoryProducts = $withCardData($differentBrandSameCategoryQuery)
-                    ->inRandomOrder()
-                    ->limit($relatedProductsLimit - $relatedProducts->count()) // Fetch remaining needed
-                    ->get();
-
-                $relatedProducts = $relatedProducts->merge($differentBrandSameCategoryProducts);
-                $loadedProductIds = array_merge($loadedProductIds, $differentBrandSameCategoryProducts->pluck('id')->toArray());
-            }
-
-            // Fallback Query 3: Any other product in the same primary category (if still needed)
-            if ($relatedProducts->count() < $relatedProductsLimit) {
-                $anyBrandSameCategoryQuery = Product::where('is_active', true)
-                    ->where('id', '!=', $product->id)
-                    ->whereHas('categories', fn (Builder $q) => $q->where('categories.id', $primaryCategoryId))
-                    ->whereNotIn('id', $loadedProductIds); // Ensure not already loaded
-
-                 $anyBrandSameCategoryProducts = $withCardData($anyBrandSameCategoryQuery)
-                    ->inRandomOrder()
-                    ->limit($relatedProductsLimit - $relatedProducts->count()) // Fetch remaining needed
-                    ->get();
-                $relatedProducts = $relatedProducts->merge($anyBrandSameCategoryProducts);
-                // $loadedProductIds = array_merge($loadedProductIds, $anyBrandSameCategoryProducts->pluck('id')->toArray()); // Not strictly needed if this is the last step for this category
-            }
+                    ->whereHas('categories', fn($q) => $q->where('categories.id', $primaryCategory->id))
+            )->inRandomOrder()->limit($relatedProductsLimit)->get();
+            
+            $relatedProducts = $relatedProducts->merge($sameBrandProducts);
         }
 
-        // Fallback Query 4: Globally featured products if very few or no category matches
-        if ($relatedProducts->count() < $relatedProductsLimit / 2) { // e.g., if less than half the desired amount
-            $globalFeaturedQuery = Product::where('is_active', true)
-                ->where('is_featured', true)
-                ->whereNotIn('id', $loadedProductIds);
-
-            $globalFeaturedProducts = $withCardData($globalFeaturedQuery)
-                ->inRandomOrder()
-                ->limit($relatedProductsLimit - $relatedProducts->count())
-                ->get();
-            $relatedProducts = $relatedProducts->merge($globalFeaturedProducts);
+        if ($relatedProducts->count() < $relatedProductsLimit && $primaryCategory) {
+            $sameCategoryProducts = $withCardData(
+                Product::where('is_active', true)
+                    ->where('id', '!=', $product->id)
+                    ->whereNotIn('id', $relatedProducts->pluck('id'))
+                    ->whereHas('categories', fn($q) => $q->where('categories.id', $primaryCategory->id))
+            )->inRandomOrder()->limit($relatedProductsLimit - $relatedProducts->count())->get();
+            
+            $relatedProducts = $relatedProducts->merge($sameCategoryProducts);
         }
 
-        // Final processing: ensure unique products and enforce the limit strictly.
         $relatedProducts = $relatedProducts->unique('id')->take($relatedProductsLimit);
-
         $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : [];
-
-        // Defensive check for product names before passing to Blade or JS
-        // This is to prevent the 'str_contains' error if a name is unexpectedly not a string.
-        $mainProductNameForJs = $product->name; // Assuming $product->name is usually a string
-        if (!is_string($mainProductNameForJs)) {
-            Log::warning("Main product (ID: {$product->id}) name is not a string. Defaulting.", ['name_data' => $mainProductNameForJs]);
-            $mainProductNameForJs = 'Product Details'; // Provide a safe default
-        }
-
-        $relatedProducts->transform(function ($rp) {
-            if (!is_string($rp->name)) {
-                Log::warning("Related product (ID: {$rp->id}) name is not a string. Defaulting.", ['name_data' => $rp->name]);
-                $rp->name = 'Related Item'; // Provide a safe default
-            }
-            // You might want to do similar checks for other string fields used in your cards
-            // e.g., $rp->brand ? (is_string($rp->brand->name) ? $rp->brand->name : 'Brand') : 'No Brand';
-            return $rp;
-        });
-
-        Log::info("Current Product ID: {$product->id}");
-if ($primaryCategory) {
-    Log::info("Primary Category ID for related products: {$primaryCategory->id}");
-} else {
-    Log::info("No primary category found for product ID: {$product->id}.");
-}
-Log::info("Count of loadedProductIds before final filter: " . count($loadedProductIds), $loadedProductIds);
-Log::info("Related products count BEFORE unique/take: " . $relatedProducts->count());
-
-// Final processing: ensure unique products and enforce the limit strictly.
-$relatedProducts = $relatedProducts->unique('id')->take($relatedProductsLimit);
-
-Log::info("Related products count AFTER unique/take: " . $relatedProducts->count());
-if ($relatedProducts->isNotEmpty()) {
-    Log::info("First related product example:", $relatedProducts->first()->toArray()); // Log first item
-} else {
-    Log::info("No related products found to pass to view.");
-}
 
         return view('products.show', [
             'product' => $product,
             'variantDataForJs' => Js::from($variantData),
             'optionsDataForJs' => Js::from($optionsData),
-            // If you pass product name to JS: 'productNameForJs' => Js::from($mainProductNameForJs),
+            'hasVariantsForView' => $hasVariantsForView, 
             'relatedProducts' => $relatedProducts,
             'userWishlistProductIds' => $userWishlistProductIds,
         ]);
