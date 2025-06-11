@@ -22,129 +22,183 @@
             {{-- Main Product Display Card --}}
             <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md lg:grid lg:grid-cols-3 lg:gap-8 items-start">
 
-                {{-- Left Column: Product Images (Keeping Alpine for image gallery for now, can be converted later if desired) --}}
+               {{-- Left Column: Product Images with HORIZONTAL Thumbnails Below --}}
                 <div class="lg:col-span-1 mb-8 lg:mb-0">
                     @php
                         $imagesCollection = $product->images;
                         $mainImage = $imagesCollection->first();
-                        $imageUrl = $mainImage?->image_url ?? asset('images/placeholder.png');
-                        $altText = $mainImage?->alt ?? $product->name;
                     @endphp
-                    <div class="space-y-4" x-data="{ currentImage: {{ Js::from($imageUrl) }}, currentImageAlt: {{ Js::from($altText) }} }">
+
+                    {{-- The Alpine component wraps a simple container with spacing --}}
+                    <div class="space-y-4" 
+                        x-data="{
+                            images: {{ Js::from($imagesCollection->map(fn($img) => ['url' => $img->image_url, 'alt' => $img->alt ?? $product->name])) }},
+                            currentImage: {{ Js::from($mainImage?->image_url ?? asset('images/placeholder.png')) }},
+                            currentImageAlt: {{ Js::from($mainImage?->alt ?? $product->name) }},
+                            
+                            changeImage(imageObject) {
+                                this.currentImage = imageObject.url;
+                                this.currentImageAlt = imageObject.alt;
+                            }
+                        }">
+                        
+                        {{-- MAIN IMAGE --}}
                         <div class="relative bg-gray-100 rounded-lg overflow-hidden aspect-square border border-gray-200 group">
                             <img :src="currentImage" :alt="currentImageAlt" class="w-full h-full object-contain cursor-pointer" @click="$dispatch('open-modal', 'product-image-zoom-modal')">
                             <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                                 <x-heroicon-o-magnifying-glass-plus class="w-12 h-12 text-white"/>
                             </div>
                         </div>
+
+                        {{-- THUMBNAILS ROW (Below) --}}
+                        {{-- Only show this row if there are multiple images --}}
                         @if($imagesCollection->count() > 1)
-                            <div class="flex flex-wrap gap-2">
-                                @foreach($imagesCollection as $image)
-                                    <button @click="currentImage = '{{ $image->image_url }}'; currentImageAlt = '{{ $image->alt ?? $product->name }}';"
-                                            :class="{ 'ring-2 ring-pink-500 border-pink-300': currentImage === '{{ $image->image_url }}', 'border-gray-200 hover:border-pink-300': currentImage !== '{{ $image->image_url }}' }"
-                                            class="w-16 h-16 bg-white rounded overflow-hidden focus:outline-none border transition-all">
-                                        <img src="{{ $image->image_url }}" alt="{{ $image->alt ?? $product->name . ' thumbnail' }}" class="w-full h-full object-cover">
+                            <div class="flex flex-wrap gap-2"> {{-- flex-wrap allows thumbnails to wrap to the next line if they don't fit --}}
+                                <template x-for="(image, index) in images" :key="index">
+                                    <button @click="changeImage(image)"
+                                            :class="{ 'ring-2 ring-pink-500 border-pink-300': currentImage === image.url, 'border-gray-200 hover:border-pink-300': currentImage !== image.url }"
+                                            class="w-16 h-16 bg-white rounded-md overflow-hidden focus:outline-none border transition-all">
+                                        <img :src="image.url" :alt="image.alt + ' thumbnail'" class="w-full h-full object-cover">
                                     </button>
-                                @endforeach
+                                </template>
                             </div>
                         @endif
+                        
                     </div>
                 </div>
 
-                {{-- Middle Column: Product Details & Actions (Plain JS will target these IDs) --}}
-                <div id="pdp-details-column" class="lg:col-span-1 space-y-5 mt-8 lg:mt-0">
-                    {{-- Hidden script tags to pass data to JavaScript --}}
-                    <script id="pdp-product-id" type="application/json">{{ json_encode($product->id) }}</script>
-                    <script id="pdp-base-price" type="application/json">{{ json_encode((float)$product->price) }}</script>
-                    <script id="pdp-base-quantity" type="application/json">{{ json_encode((int)$product->quantity) }}</script>
-                    <script id="pdp-has-variants" type="application/json">{{ json_encode($hasVariantsForView) }}</script>
-                    <script id="pdp-options-data" type="application/json">{!! $optionsDataForJs !!}</script> {{-- Use {!! !!} as $optionsDataForJs is already JS::from() --}}
-                    <script id="pdp-variants-data" type="application/json">{!! $variantDataForJs !!}</script> {{-- Use {!! !!} as $variantDataForJs is already JS::from() --}}
+                
+                {{-- Middle Column: Product Details & Actions --}}
+                <div class="lg:col-span-1 space-y-5"
+                    x-data="productDetails({
+                        productName: {{ Js::from($product->name) }},
+                        basePrice: {{ (float)$product->price }},
+                        baseQuantity: {{ (int)$product->quantity }},
+                        hasVariants: {{ $hasVariantsForView ? 'true' : 'false' }},
+                        optionsData: {{ $optionsDataForJs }},
+                        variantsData: {{ $variantDataForJs }}
+                    })">
 
+                    {{-- Top Section: Product Name and Wishlist Button --}}
                     <div class="flex items-start justify-between">
                         <h1 class="text-xl lg:text-2xl font-semibold text-gray-800 leading-tight pr-4">{{ $product->name }}</h1>
+                        
+                        {{-- WISHLIST BUTTON (RESTORED) --}}
                         @auth
-                            {{-- Wishlist button - if you convert this to plain JS, give it an ID --}}
                             <div x-data="wishlistButton({ productId: {{ $product->id }}, initialIsInWishlist: {{ Auth::user()->hasInWishlist($product) ? 'true' : 'false' }} })" class="flex-shrink-0">
                                 <button @click="toggleWishlist" type="button" :disabled="isLoading" :title="isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'" class="p-1.5 text-gray-400 hover:text-pink-500 disabled:opacity-50">
-                                    <template x-if="isLoading"><svg class="animate-spin h-5 w-5 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></template>
-                                    <template x-if="!isLoading"><x-heroicon-o-heart class="w-5 h-5" ::class="{ 'text-pink-500 fill-current': isInWishlist }" /></template>
+                                    <template x-if="isLoading">
+                                        <svg class="animate-spin h-5 w-5 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </template>
+                                    <template x-if="!isLoading">
+                                        <x-heroicon-o-heart class="w-5 h-5" ::class="{ 'text-pink-500 fill-current': isInWishlist }" />
+                                    </template>
                                 </button>
                             </div>
                         @endauth
+                        @guest
+                            <a href="{{ route('login') }}?redirect={{ url()->current() }}" title="Add to Wishlist" class="p-1.5 text-gray-400 hover:text-pink-500">
+                                <x-heroicon-o-heart class="w-5 h-5"/>
+                            </a>
+                        @endguest
                     </div>
 
+                    {{-- Brand --}}
                     @if($product->brand)
                         <p class="text-sm">Brand: <a href="{{ route('brands.show', $product->brand->slug) }}" class="text-pink-600 hover:underline font-medium">{{ $product->brand->name }}</a></p>
                     @endif
 
+                    {{-- Ratings --}}
                     <div class="flex items-center gap-2">
-                        <div class="flex">@for ($i = 1; $i <= 5; $i++) <x-heroicon-s-star class="w-4 h-4 {{ $i <= round($product->approved_reviews_avg_rating ?? 0) ? 'text-yellow-400' : 'text-gray-300' }}" /> @endfor</div>
+                        <div class="flex">
+                            @for ($i = 1; $i <= 5; $i++)
+                                <x-heroicon-s-star class="w-4 h-4 {{ $i <= round($product->approved_reviews_avg_rating ?? 0) ? 'text-yellow-400' : 'text-gray-300' }}" />
+                            @endfor
+                        </div>
                         @if ($product->approved_reviews_count > 0)
                             <a href="#reviews" class="text-sm text-pink-600 hover:underline">({{ $product->approved_reviews_count }} verified ratings)</a>
                         @else
                             <a href="#reviews" class="text-sm text-pink-600 hover:underline">Be the first to review</a>
                         @endif
                     </div>
-
+                    
                     <hr class="border-gray-100" />
 
-                    <div class="space-y-1">
-                        <div class="flex items-baseline gap-2">
-                            <span id="pdp-current-price" class="text-2xl font-bold text-gray-900">GH₵ {{ number_format($product->price, 2) }}</span>
-                            @if($product->compare_at_price && $product->compare_at_price > $product->price)
-                                @php $discount = round((($product->compare_at_price - $product->price) / $product->compare_at_price) * 100); @endphp
-                                <span class="text-lg text-gray-500 line-through">GH₵ {{ number_format($product->compare_at_price, 2) }}</span>
-                                <span class="text-sm font-medium text-red-600">-{{ $discount }}%</span>
-                            @endif
-                        </div>
-                        <div class="text-sm min-h-[20px]">
-                            <p id="pdp-items-left-text" class="text-orange-600 font-medium" style="display: none;"></p>
-                            <p id="pdp-stock-status" class="text-green-600 font-medium" style="display: none;">In stock</p> {{-- JS will manage this --}}
-                        </div>
+                    {{-- Price --}}
+                    <div class="flex items-baseline gap-2">
+                        <span class="text-2xl font-bold text-gray-900" x-text="`GH₵ ${currentPrice.toFixed(2)}`"></span>
+                        @if($product->compare_at_price && $product->compare_at_price > $product->price)
+                            <span class="text-lg text-gray-500 line-through">GH₵ {{ number_format($product->compare_at_price, 2) }}</span>
+                        @endif
                     </div>
 
-                    {{-- Variation Available Section (JS will populate this if needed) --}}
-                    <div id="pdp-variant-options-container" class="space-y-3" style="display: none;"> {{-- Initially hidden --}}
-                        <div class="flex items-center justify-between">
-                          <h3 class="text-sm font-medium text-gray-900 uppercase">Variation Available</h3>
-                          {{-- <a href="#" class="text-sm text-pink-600 hover:underline">Size Guide</a> --}}
-                        </div>
-                        <div id="pdp-options-render-area" class="space-y-4">
-                            {{-- JavaScript will build <fieldset> and <label> here --}}
-                        </div>
+                    {{-- Stock Status --}}
+                    <div class="text-sm min-h-[20px]">
+                        <p x-text="stockMessage" :class="{ 'text-green-600': isInStock, 'text-red-600': !isInStock, 'text-orange-600': isLowStock }"></p>
+                    </div>
+                    
+                    {{-- VARIATION AVAILABLE SECTION --}}
+                    <div class="space-y-4" x-show="hasVariants">
+                        <h3 class="text-sm font-medium text-gray-900 uppercase">Variation Available</h3>
+                        <template x-for="(attributeData, attributeId) in options" :key="attributeId">
+                            <fieldset>
+                                <legend class="text-sm font-medium text-gray-700 mb-2" x-text="attributeData.name"></legend>
+                                <div class="flex flex-wrap gap-2">
+                                    <template x-for="value in attributeData.values" :key="value.id">
+                                        <label @click="selectOption(attributeId, value.id)"
+                                            :class="{
+                                                    'ring-2 ring-pink-500 border-pink-500 font-semibold': isSelected(attributeId, value.id),
+                                                    'border-gray-300': !isSelected(attributeId, value.id),
+                                                    'opacity-50 cursor-not-allowed': !isOptionAvailable(value.id)
+                                            }"
+                                            class="border rounded-md py-2 px-4 flex items-center justify-center text-sm uppercase cursor-pointer focus:outline-none transition-all">
+                                            <input type="radio" :name="`option_${attributeId}`" :value="value.id" class="sr-only" :disabled="!isOptionAvailable(value.id)">
+                                            <span x-text="value.name"></span>
+                                        </label>
+                                    </template>
+                                </div>
+                            </fieldset>
+                        </template>
                     </div>
 
-                    {{-- Quantity Input (JS will show/hide for simple products) --}}
-                    <div id="pdp-quantity-section" class="mt-4" style="display: none;"> {{-- Initially hidden --}}
-                        <label for="pdp-quantity-input" class="block text-sm font-medium text-gray-900 mb-1">Quantity</label>
-                        <div class="relative flex items-center max-w-[8rem]">
-                            <button id="pdp-quantity-minus" type="button" class="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-l-lg p-2.5 h-10 disabled:opacity-50">
-                                <x-heroicon-s-minus class="w-4 h-4 text-gray-900"/>
-                            </button>
-                            <input type="number" id="pdp-quantity-input" value="1" min="1" class="bg-gray-50 border-x-0 border-gray-300 h-10 text-center text-gray-900 text-sm focus:ring-pink-500 focus:border-pink-500 block w-full py-2.5" required>
-                            <button id="pdp-quantity-plus" type="button" class="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-r-lg p-2.5 h-10 disabled:opacity-50">
-                                <x-heroicon-s-plus class="w-4 h-4 text-gray-900"/>
-                            </button>
-                        </div>
+                    {{-- Action Area: Cart Messages & Buttons (NEW LOGIC) --}}
+                <div class="mt-auto pt-4 space-y-4">
+                    {{-- Action Message (for "Please select a variant" prompt) --}}
+                    <div x-show="cartActionMessage" x-transition class="border px-3 py-2 rounded-md text-sm"
+                        :class="{ 'bg-red-100 border-red-300 text-red-800': cartActionMessageType === 'error', 'bg-green-100 border-green-300 text-green-800': cartActionMessageType === 'success' }">
+                        <span x-text="cartActionMessage"></span>
                     </div>
 
-                    {{-- Action Area: Cart Messages & Button --}}
-                    <div class="mt-auto pt-4 space-y-4">
-                        <div id="pdp-cart-action-message" class="border px-3 py-2 rounded-md text-sm" style="display: none;">
-                            {{-- JS will set text and classes --}}
-                        </div>
-
-                        <button type="button" id="pdp-add-to-cart-button"
-                                class="w-full flex items-center justify-center rounded-md border border-transparent bg-pink-600 px-8 py-3 text-base font-medium text-white hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
-                            <span id="pdp-add-to-cart-button-icon-loading" style="display: none;">
-                                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            </span>
-                            <span id="pdp-add-to-cart-button-icon-default">
-                                <x-heroicon-o-shopping-cart class="w-6 h-6 mr-3" />
-                            </span>
-                            <span id="pdp-add-to-cart-button-text">Add to Cart</span>
+                    {{-- Main "Add to Cart" Button --}}
+                    {{-- Shows for simple products OR for variant products BEFORE a variant is selected --}}
+                    <div x-show="isSimpleProduct() || !currentVariant">
+                        <button type="button" @click="handleAddToCartAttempt()"
+                                :disabled="!isAnythingPurchasable() || isLoading"
+                                class="w-full flex items-center justify-center rounded-md border border-transparent bg-pink-600 px-8 py-3 text-base font-medium text-white hover:bg-pink-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
+                            <svg x-show="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" ...></svg>
+                            <x-heroicon-o-shopping-cart class="w-6 h-6 mr-3" x-show="!isLoading" />
+                            <span x-text="isLoading ? 'Adding...' : 'Add to Cart'"></span>
                         </button>
+                    </div>
+
+                    {{-- Quantity Stepper for SELECTED Variant --}}
+                    <div x-show="!isSimpleProduct() && getQuantityInCart(currentVariant?.id) > 0" x-cloak>
+                            <div @click="openVariantModal()" class="relative flex items-center justify-between max-w-xs mx-auto border border-gray-300 rounded-md cursor-pointer hover:border-pink-500">
+                                <button type="button" class="p-2.5 h-12 text-gray-700">
+                                    <x-heroicon-s-minus class="w-5 h-5"/>
+                                </button>
+                                <div class="text-center">
+                                    <span class="font-semibold" x-text="getQuantityInCart(currentVariant.id)"></span>
+                                    <span> item(s) added</span>
+                                </div>
+                                <button type="button" class="p-2.5 h-12 text-gray-700">
+                                    <x-heroicon-s-plus class="w-5 h-5"/>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     @if($product->short_description)
@@ -327,365 +381,207 @@
         </div>
     </x-modal>
 
+    {{--VARIANT MODAL--}}
+    <x-modal name="select-variation-modal" maxWidth="lg" focusable>
+    <div class="p-4 sm:p-6 bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900">Please select a variation</h3>
+            <button @click="$dispatch('close')" type="button" class="text-gray-400 hover:text-gray-600"><x-heroicon-o-x-mark class="w-6 h-6"/></button>
+        </div>
+        <div class="mt-4 space-y-3 max-h-80 overflow-y-auto custom-scrollbar-mobile pr-2">
+            <template x-for="variant in allStockedVariants" :key="variant.id">
+                 <div class="flex justify-between items-center p-3 border rounded-md">
+                     {{-- Variant Info --}}
+                     <div class="flex-grow pr-4">
+                        <span class="text-sm font-medium text-gray-800" x-text="getVariantName(variant.attributeValueIds)"></span>
+                        <div class="flex items-center mt-1">
+                            <span class="text-sm font-semibold text-pink-600" x-text="`GH₵ ${parseFloat(variant.price).toFixed(2)}`"></span>
+                        </div>
+                        <p class="text-xs mt-1" :class="variant.quantity <= 10 ? 'text-orange-600' : 'text-green-600'">
+                            <span x-text="variant.quantity <= 10 ? `${variant.quantity} units left` : 'In Stock'"></span>
+                        </p>
+                     </div>
+                     {{-- Quantity Stepper in Modal --}}
+                     <div class="relative flex items-center max-w-[8rem] flex-shrink-0">
+                        <button type="button" @click="updateCart(variant, getQuantityInCart(variant.id) - 1)"
+                                class="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-l-lg p-2.5 h-10 disabled:opacity-50">
+                            <x-heroicon-s-minus class="w-4 h-4 text-gray-900"/>
+                        </button>
+                        <input type="number" readonly :value="getQuantityInCart(variant.id)" class="bg-gray-50 border-x-0 border-gray-300 h-10 text-center text-gray-900 text-sm w-full py-2.5 pointer-events-none">
+                        <button type="button" @click="updateCart(variant, getQuantityInCart(variant.id) + 1)"
+                                :disabled="getQuantityInCart(variant.id) >= variant.quantity"
+                                class="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-r-lg p-2.5 h-10 disabled:opacity-50">
+                            <x-heroicon-s-plus class="w-4 h-4 text-gray-900"/>
+                        </button>
+                     </div>
+                 </div>
+            </template>
+        </div>
+        <div class="mt-6 sm:flex sm:flex-row-reverse sm:gap-3">
+            <a href="{{ route('cart.index') }}" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-pink-600 text-base font-medium text-white hover:bg-pink-700 sm:ml-3 sm:w-auto sm:text-sm">
+                Go to Cart
+            </a>
+            <button type="button" @click="$dispatch('close')" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">
+                Continue Shopping
+            </button>
+        </div>
+    </div>
+</x-modal>
+
 </x-app-layout>
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const detailsContainer = document.getElementById('pdp-details-column');
-    if (!detailsContainer) return; // Exit if not on a PDP
+    // In your @push('scripts') block in products.show.blade.php
 
-    // --- Retrieve Data from Blade ---
-    const productId = JSON.parse(document.getElementById('pdp-product-id').textContent);
-    let currentPrice = JSON.parse(document.getElementById('pdp-base-price').textContent);
-    let productBaseQuantity = JSON.parse(document.getElementById('pdp-base-quantity').textContent);
-    const hasVariants = JSON.parse(document.getElementById('pdp-has-variants').textContent);
-    const optionsData = JSON.parse(document.getElementById('pdp-options-data').textContent || '{}');
-    const allVariantsData = JSON.parse(document.getElementById('pdp-variants-data').textContent || '{}');
+document.addEventListener('alpine:init', () => {
 
-    // --- DOM Elements ---
-    const currentPriceElem = document.getElementById('pdp-current-price');
-    const itemsLeftTextElem = document.getElementById('pdp-items-left-text');
-    const stockStatusElem = document.getElementById('pdp-stock-status');
-    const variantOptionsContainer = document.getElementById('pdp-variant-options-container');
-    const optionsRenderArea = document.getElementById('pdp-options-render-area');
-    const quantitySection = document.getElementById('pdp-quantity-section');
-    const quantityInput = document.getElementById('pdp-quantity-input');
-    const quantityMinusBtn = document.getElementById('pdp-quantity-minus');
-    const quantityPlusBtn = document.getElementById('pdp-quantity-plus');
-    const addToCartButton = document.getElementById('pdp-add-to-cart-button');
-    const cartButtonTextElem = document.getElementById('pdp-add-to-cart-button-text');
-    const cartIconDefault = document.getElementById('pdp-add-to-cart-button-icon-default');
-    const cartIconLoading = document.getElementById('pdp-add-to-cart-button-icon-loading');
-    const cartActionMessageElem = document.getElementById('pdp-cart-action-message');
+    Alpine.data('productDetails', (config) => ({
+        // --- DATA & STATE ---
+        basePrice: config.basePrice,
+        baseQuantity: config.baseQuantity,
+        hasVariants: config.hasVariants,
+        options: config.optionsData,
+        variants: config.variantsData, // all variants (stocked or not) for lookup
+        allStockedVariants: [], // only variants with quantity > 0 for modal
+        
+        isLoading: false,
+        currentPrice: 0,
+        stockMessage: '',
+        isInStock: false,
+        isLowStock: false,
+        selectedOptions: {},
+        currentVariant: null, // The variant object based on current page selection
+        cartActionMessage: '',
+        cartActionMessageType: '',
+        
+        // NEW: Local state to track quantities of items in cart
+        cartItems: {}, // { 'variantId': quantity }
 
-    // --- State ---
-    let selectedOptions = {}; // { attributeId: valueId }
-    let currentSelectedVariant = null;
-    let currentQuantity = 1; // For simple product quantity input
-    let isLoading = false;
-    const lowStockThreshold = 10;
-
-    // --- Helper Functions ---
-    function isSimpleProduct() {
-        return !hasVariants || Object.keys(optionsData).length === 0;
-    }
-
-    function areAllOptionsSelected() {
-        if (isSimpleProduct()) return false; // No options to select for simple
-        return Object.keys(optionsData).every(attrId => selectedOptions.hasOwnProperty(attrId) && selectedOptions[attrId] !== null);
-    }
-
-    function isAnythingPurchasable() {
-        if (isSimpleProduct()) {
-            return productBaseQuantity > 0;
-        }
-        return Object.values(allVariantsData).some(variant => variant.quantity > 0);
-    }
-
-    function getVariantFromSelection() {
-        if (!areAllOptionsSelected()) return null;
-        const key = Object.values(selectedOptions).map(id => parseInt(id)).sort((a, b) => a - b).join('-');
-        return allVariantsData[key] || null;
-    }
-
-    function isOptionCombinationAvailable(attributeIdToCheck, valueIdToCheck) {
-        // Create a temporary selection including the one to check
-        const tempSelection = { ...selectedOptions };
-        tempSelection[attributeIdToCheck] = valueIdToCheck;
-
-        for (const variantKey in allVariantsData) {
-            const variant = allVariantsData[variantKey];
-            if (variant.quantity > 0) {
-                let match = true;
-                // Check if this variant matches ALL currently considered options (tempSelection)
-                // For an option to be "available", it must lead to at least one stocked variant
-                // if other options were also selected.
-                const variantAttributeValueIds = variant.attributeValues; // This should be array of value IDs
-
-                for (const attrId in optionsData) { // Iterate over all possible attribute types
-                    const selectedValueId = tempSelection[attrId];
-                    if (selectedValueId !== null && typeof selectedValueId !== 'undefined') { // If this attribute type is part of our temp selection
-                        if (!variantAttributeValueIds.includes(selectedValueId)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                }
-                if (match) return true; // Found a stocked variant that could be formed with this option
+        // --- INITIALIZATION ---
+        init() {
+            this.currentPrice = this.basePrice;
+            if (this.hasVariants) {
+                Object.keys(this.options).forEach(attrId => { this.selectedOptions[parseInt(attrId)] = null; });
             }
-        }
-        return false;
-    }
-
-
-    // --- UI Update Functions ---
-    function updatePriceAndStockDisplay() {
-        let displayPrice = basePrice;
-        let stockText = '';
-        let lowStock = false;
-        let inStockGeneral = false;
-
-        if (isSimpleProduct()) {
-            displayPrice = basePrice;
-            if (productBaseQuantity > 0 && productBaseQuantity <= lowStockThreshold) {
-                stockText = `${productBaseQuantity} items left`;
-                lowStock = true;
-            }
-            inStockGeneral = productBaseQuantity > 0;
-        } else { // Has Variants
-            if (areAllOptionsSelected()) {
-                currentSelectedVariant = getVariantFromSelection();
-                if (currentSelectedVariant) {
-                    displayPrice = currentSelectedVariant.price;
-                    if (currentSelectedVariant.quantity > 0 && currentSelectedVariant.quantity <= lowStockThreshold) {
-                        stockText = `${currentSelectedVariant.quantity} items left`;
-                        lowStock = true;
-                    }
-                    inStockGeneral = currentSelectedVariant.quantity > 0;
-                } else {
-                    stockText = 'This combination is unavailable.';
-                }
-            } else {
-                displayPrice = basePrice; // Show base price if not all options selected
-                // No specific stock text until all options are selected
-                inStockGeneral = isAnythingPurchasable(); // General availability for variants
-            }
-        }
-
-        if (currentPriceElem) currentPriceElem.textContent = `GH₵ ${parseFloat(displayPrice).toFixed(2)}`;
-        if (itemsLeftTextElem) {
-            itemsLeftTextElem.textContent = stockText;
-            itemsLeftTextElem.style.display = stockText ? 'block' : 'none';
-            itemsLeftTextElem.classList.toggle('text-orange-600', lowStock);
-        }
-
-        if (stockStatusElem) {
-            stockStatusElem.style.display = 'none'; // Hide by default
-            if (!stockText && inStockGeneral) {
-                stockStatusElem.textContent = 'In stock';
-                stockStatusElem.className = 'text-sm text-green-600 font-medium';
-                stockStatusElem.style.display = 'block';
-            } else if (!inStockGeneral && !stockText) { // If not purchasable and no specific message
-                 stockStatusElem.textContent = 'Out of stock';
-                 stockStatusElem.className = 'text-sm text-red-600 font-medium';
-                 stockStatusElem.style.display = 'block';
-            }
-        }
-        updateAddToCartButton();
-    }
-
-    function updateAddToCartButton() {
-        if (!addToCartButton || !cartButtonTextElem || !cartIconDefault || !cartIconLoading) return;
-
-        const purchasable = isAnythingPurchasable();
-        addToCartButton.disabled = isLoading || !purchasable;
-
-        if (isLoading) {
-            cartButtonTextElem.textContent = 'Adding...';
-            cartIconDefault.style.display = 'none';
-            cartIconLoading.style.display = 'inline-block';
-        } else {
-            cartButtonTextElem.textContent = purchasable ? 'Add to Cart' : 'Out of Stock';
-            cartIconDefault.style.display = 'inline-block';
-            cartIconLoading.style.display = 'none';
-        }
-    }
-
-    function showActionMessage(message, type = 'error') {
-        if (cartActionMessageElem) {
-            cartActionMessageElem.textContent = message;
-            cartActionMessageElem.className = `border px-3 py-2 rounded-md text-sm ${type === 'success' ? 'bg-green-100 border-green-300 text-green-700' : 'bg-red-100 border-red-300 text-red-800'}`;
-            cartActionMessageElem.style.display = 'block';
-            setTimeout(() => { cartActionMessageElem.style.display = 'none'; }, 4000);
-        }
-    }
-
-    // --- Render Variant Options ---
-    function renderVariantOptions() {
-        if (isSimpleProduct() || !optionsRenderArea) {
-            if(variantOptionsContainer) variantOptionsContainer.style.display = 'none';
-            if(quantitySection) quantitySection.style.display = isSimpleProduct() ? 'block' : 'none';
-            return;
-        }
-        if(variantOptionsContainer) variantOptionsContainer.style.display = 'block';
-        if(quantitySection) quantitySection.style.display = 'none'; // Hide simple qty input for variants
-
-        optionsRenderArea.innerHTML = ''; // Clear previous options
-
-        Object.keys(optionsData).forEach(attributeId => {
-            const attribute = optionsData[attributeId];
-            const fieldset = document.createElement('fieldset');
-            const legend = document.createElement('legend');
-            legend.className = 'text-sm font-medium text-gray-700 mb-2';
-            legend.textContent = attribute.name;
-            fieldset.appendChild(legend);
-
-            const valuesContainer = document.createElement('div');
-            valuesContainer.className = 'flex flex-wrap gap-2';
-
-            attribute.values.forEach(value => {
-                const label = document.createElement('label');
-                label.className = 'border border-gray-200 bg-white text-gray-900 hover:bg-gray-50 rounded-md py-2 px-4 text-sm font-medium uppercase cursor-pointer focus:outline-none transition-all';
-                label.dataset.attributeId = attributeId;
-                label.dataset.valueId = value.id;
-
-                const input = document.createElement('input');
-                input.type = 'radio';
-                input.name = `option_${attributeId}`;
-                input.value = value.id;
-                input.className = 'sr-only';
-
-                const span = document.createElement('span');
-                span.textContent = value.name;
-
-                label.appendChild(input);
-                label.appendChild(span);
-                valuesContainer.appendChild(label);
-
-                // Check initial availability for styling
-                if (!isOptionCombinationAvailable(parseInt(attributeId), parseInt(value.id))) {
-                    label.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
-                    input.disabled = true;
-                }
-
-
-                label.addEventListener('click', function() {
-                    if (input.disabled) return;
-
-                    // Update selected state visually
-                    this.closest('.pdp-variant-attribute-group', group => {
-                        group.querySelectorAll('.pdp-variant-option-label').forEach(l => {
-                             l.classList.remove('ring-2', 'ring-pink-500', 'border-pink-500', 'bg-pink-50', 'text-pink-700', 'font-semibold');
-                             l.classList.add('border-gray-200', 'bg-white', 'text-gray-900', 'hover:bg-gray-50');
-                        });
-                    });
-                    
-                    this.classList.remove('border-gray-200', 'bg-white', 'text-gray-900', 'hover:bg-gray-50');
-                    this.classList.add('ring-2', 'ring-pink-500', 'border-pink-500', 'bg-pink-50', 'text-pink-700', 'font-semibold');
-
-
-                    selectedOptions[attributeId] = parseInt(value.id);
-                    // After selection, re-evaluate availability of other options
-                    // (More complex: would involve checking combinations)
-                    updatePriceAndStockDisplay();
-                });
+            
+            this.allStockedVariants = Object.values(this.variants).filter(v => v.quantity > 0);
+            
+            // Listen for global cart updates to sync local state
+            window.addEventListener('cart-updated', (event) => {
+                this.syncCartState(event.detail.cart_items || {});
             });
-            fieldset.appendChild(valuesContainer);
-            optionsRenderArea.appendChild(fieldset);
-            // Add data-attribute-id to the valuesContainer for easier targeting if needed
-            valuesContainer.dataset.attributeId = attributeId; 
-            valuesContainer.classList.add('pdp-variant-attribute-group');
-        });
-    }
 
-
-    // --- Event Handlers Setup ---
-    if (quantityMinusBtn && quantityInput) {
-        quantityMinusBtn.addEventListener('click', () => {
-            let val = parseInt(quantityInput.value);
-            if (val > 1) { quantityInput.value = val - 1; currentQuantity = val - 1;}
-            quantityMinusBtn.disabled = currentQuantity <= 1;
-            quantityPlusBtn.disabled = currentQuantity >= parseInt(quantityInput.max);
-        });
-    }
-    if (quantityPlusBtn && quantityInput) {
-        quantityPlusBtn.addEventListener('click', () => {
-            let val = parseInt(quantityInput.value);
-            const max = parseInt(quantityInput.max);
-            if (val < max) { quantityInput.value = val + 1; currentQuantity = val + 1; }
-            quantityMinusBtn.disabled = currentQuantity <= 1;
-            quantityPlusBtn.disabled = currentQuantity >= max;
-        });
-    }
-    if (quantityInput) {
-        quantityInput.addEventListener('input', (e) => { // Use 'input' for better responsiveness
-            let val = parseInt(e.target.value);
-            const min = parseInt(e.target.min);
-            const max = parseInt(e.target.max);
-            if (isNaN(val) || val < min) val = min;
-            if (val > max) val = max;
-            e.target.value = val; // Correct the input value if out of bounds
-            currentQuantity = val;
-            if(quantityMinusBtn) quantityMinusBtn.disabled = currentQuantity <= min;
-            if(quantityPlusBtn) quantityPlusBtn.disabled = currentQuantity >= max;
-        });
-    }
-
-    if (addToCartButton) {
-        addToCartButton.addEventListener('click', function () {
-            if (isLoading) return;
-            if (cartActionMessageElem) cartActionMessageElem.style.display = 'none';
-
-            if (isSimpleProduct()) {
-                if (productBaseQuantity > 0 && currentQuantity <= productBaseQuantity) {
-                    performAddToCart(productId, null, currentQuantity);
-                } else {
-                    showActionMessage(productBaseQuantity > 0 ? `Only ${productBaseQuantity} units available.` : 'This item is out of stock.', 'error');
+            // Initial sync with session cart data (passed via a script tag)
+            this.syncCartState(JSON.parse(document.getElementById('pdp-initial-cart-state').textContent || '{}'));
+            
+            this.updateDisplay();
+        },
+        
+        // --- NEW: Cart State Management ---
+        syncCartState(cartData) {
+            let newCartItems = {};
+            for(const key in cartData) {
+                const item = cartData[key];
+                if (item.product_id === config.productId) {
+                    if (item.variant_id) {
+                        newCartItems[item.variant_id] = item.quantity;
+                    } else { // Simple product
+                        newCartItems['simple'] = item.quantity;
+                    }
                 }
-                return;
             }
+            this.cartItems = newCartItems;
+            this.updateDisplay();
+        },
+        
+        getQuantityInCart(variantId) {
+            return this.cartItems[variantId] || 0;
+        },
 
-            if (areAllOptionsSelected()) {
-                currentSelectedVariant = getVariantFromSelection(); // Ensure this is updated
-                if (currentSelectedVariant && currentSelectedVariant.quantity > 0) {
-                    performAddToCart(productId, currentSelectedVariant.id, 1); // Add 1 unit of selected variant for now
-                } else {
-                    showActionMessage('This specific combination is not available or out of stock.', 'error');
+        // --- REST OF THE LOGIC ---
+        isSimpleProduct() { /* ... as before ... */ },
+        areAllOptionsSelectedOnPage() { /* ... as before ... */ },
+        isAnythingPurchasable() { /* ... as before ... */ },
+        isOptionAvailable(valueId) { /* ... as before ... */ },
+        isSelected(attributeId, valueId) { /* ... as before ... */ },
+        getVariantName(attributeValueIds) { /* ... same logic as getVariantNameForModal before ... */ },
+        
+        selectOption(attributeId, valueId) {
+            if (this.isSelected(attributeId, valueId)) { this.selectedOptions[attributeId] = null; }
+            else { this.selectedOptions[attributeId] = valueId; }
+            
+            // When an option is selected, add 1 to cart immediately
+            if(this.areAllOptionsSelectedOnPage()) {
+                const variant = this.getVariantFromSelection();
+                if (variant && this.getQuantityInCart(variant.id) === 0) {
+                    this.updateCart(variant, 1);
                 }
+            }
+            this.updateDisplay();
+        },
+        
+        getVariantFromSelection() {
+            if (!this.areAllOptionsSelectedOnPage()) return null;
+            const key = Object.values(this.selectedOptions).sort((a,b) => a-b).join('-');
+            return this.variants[key] || null;
+        },
+
+        updateDisplay() {
+            // ... (your existing updateDisplay logic for price and stock message) ...
+        },
+        
+        openVariantModal() {
+            this.$dispatch('open-modal', 'select-variation-modal');
+        },
+        
+        handleAddToCartAttempt() {
+            // This is now only for simple products or the initial click for variants
+            this.cartActionMessage = '';
+            if (this.isSimpleProduct()) {
+                if (this.baseQuantity > 0) { this.updateCart(null, 1); }
             } else {
-                showActionMessage('Please select a variation to add to cart.', 'error');
+                this.cartActionMessage = 'Please select a variation to add to cart.';
+                this.cartActionMessageType = 'error';
+                if(this.cartActionMessage) { setTimeout(() => { this.cartActionMessage = ''; }, 4000); }
             }
-        });
-    }
+        },
 
-    function performAddToCart(prodId, varId, qty) {
-        isLoading = true;
-        updateAddToCartButton(); // Show loading state
-        // ... (your existing performAddToCart fetch logic from previous correct answer) ...
-        // Make sure it dispatches 'cart-updated' and 'toast-show'
-        let payload = { product_id: prodId, quantity: qty };
-        if (varId) payload.variant_id = varId;
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-
-        fetch('{{ route('cart.add') }}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-        .then(response => response.ok ? response.json() : response.json().then(err => {err.status = response.status; throw err;}))
-        .then(data => {
-            if (data.success) {
-                showActionMessage(data.message || 'Item added to cart!', 'success');
-                if (typeof data.cart_distinct_items_count !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_distinct_items_count }}));
+        updateCart(variant, newQuantity) {
+            if (this.isLoading) return;
+            this.isLoading = true;
+            
+            let payload = {
+                product_id: config.productId,
+                quantity: newQuantity, // This is the new TOTAL quantity for this item
+                variant_id: variant ? variant.id : null,
+                update_mode: true // Signal to controller to set quantity, not add
+            };
+            
+            // The route should now point to a new or updated controller method
+            fetch('{{ route("cart.update_item") }}', { /* ... fetch options ... */ })
+            .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
+            .then(data => {
+                if (data.success) {
+                    window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'success', message: data.message } }));
+                    // The 'cart-updated' event should contain the full cart state
+                    if (data.cart_items !== undefined) {
+                        window.dispatchEvent(new CustomEvent('cart-updated', { detail: { 
+                            cart_items: data.cart_items,
+                            cart_distinct_items_count: data.cart_distinct_items_count
+                        }}));
+                    }
+                } else {
+                    window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message } }));
                 }
-                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'success', message: data.message }}));
-            } else {
-                showActionMessage(data.message || 'Could not add item.', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Add to cart error:', error);
-            showActionMessage(error.message || 'An error occurred.', 'error');
-        })
-        .finally(() => {
-            isLoading = false;
-            updateAddToCartButton(); // Revert button to normal state
-        });
-    }
-
-    // --- Initial Setup ---
-    if (isSimpleProduct()) {
-        if(quantitySection) quantitySection.style.display = 'block';
-        if(quantityInput) quantityInput.max = productBaseQuantity;
-        if(quantityMinusBtn) quantityMinusBtn.disabled = currentQuantity <= 1;
-        if(quantityPlusBtn) quantityPlusBtn.disabled = currentQuantity >= productBaseQuantity;
-    } else {
-        renderVariantOptions(); // Build the variant selection UI
-    }
-    updatePriceAndStockDisplay(); // Set initial price, stock text, and button state
-
+            }).catch(err => {
+                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: err.message || 'An error occurred.' } }));
+            }).finally(() => {
+                this.isLoading = false;
+            });
+        }
+    }));
 });
 </script>
+
 @endpush

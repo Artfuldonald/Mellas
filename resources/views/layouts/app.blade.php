@@ -441,6 +441,107 @@
                     }
                 })); // End of toastHandler
 
+
+                //PRODUCT DETAILS COMPONENT
+                 Alpine.data('productDetails', (config) => ({
+                // --- DATA from Blade ---
+                basePrice: config.basePrice,
+                baseQuantity: config.baseQuantity,
+                hasVariants: config.hasVariants,
+                options: config.optionsData,
+                variants: config.variantsData,
+
+                // --- STATE ---
+                currentPrice: 0,
+                stockMessage: '',
+                isInStock: false,
+                isLowStock: false,
+                selectedOptions: {}, // e.g., { 1: 5 } -> { attribute_id: value_id }
+                currentVariant: null,
+
+                // --- INITIALIZATION ---
+                init() {
+                    this.currentPrice = this.basePrice;
+
+                    if (this.hasVariants) {
+                        // Initialize selectedOptions with null for each attribute
+                        Object.keys(this.options).forEach(attrId => {
+                            this.selectedOptions[parseInt(attrId)] = null;
+                        });
+                    }
+                    
+                    this.updateDisplay(); // Set the initial display state
+                },
+
+                // --- LOGIC METHODS ---
+                selectOption(attributeId, valueId) {
+                    // Toggle selection: if clicking the same one, unselect it
+                    if (this.selectedOptions[attributeId] === valueId) {
+                        this.selectedOptions[attributeId] = null;
+                    } else {
+                        this.selectedOptions[attributeId] = valueId;
+                    }
+                    this.updateDisplay();
+                },
+
+                updateDisplay() {
+                    if (!this.hasVariants) {
+                        // Simple Product logic
+                        this.isInStock = this.baseQuantity > 0;
+                        this.isLowStock = this.isInStock && this.baseQuantity <= 10;
+                        this.stockMessage = this.isLowStock ? `${this.baseQuantity} items left` : (this.isInStock ? 'In stock' : 'Out of stock');
+                        this.currentPrice = this.basePrice;
+                        return;
+                    }
+
+                    // Multi-Variant Product logic
+                    const allOptionsSelected = Object.values(this.selectedOptions).every(v => v !== null);
+
+                    if (allOptionsSelected) {
+                        const key = Object.values(this.selectedOptions).sort((a,b) => a-b).join('-');
+                        this.currentVariant = this.variants[key] || null;
+
+                        if (this.currentVariant) {
+                            this.currentPrice = this.currentVariant.price;
+                            this.isInStock = this.currentVariant.quantity > 0;
+                            this.isLowStock = this.isInStock && this.currentVariant.quantity <= 10;
+                            this.stockMessage = this.isLowStock ? `${this.currentVariant.quantity} items left` : (this.isInStock ? 'In stock' : 'Out of stock');
+                        } else {
+                            this.currentPrice = this.basePrice;
+                            this.isInStock = false;
+                            this.isLowStock = false;
+                            this.stockMessage = 'This combination is not available';
+                        }
+                    } else {
+                        // Not all options selected, reset to base state
+                        this.currentPrice = this.basePrice;
+                        this.currentVariant = null;
+                        this.isInStock = Object.values(this.variants).some(v => v.quantity > 0); // Check if *any* variant is in stock
+                        this.isLowStock = false;
+                        this.stockMessage = this.isInStock ? 'In stock' : 'Out of stock';
+                    }
+                },
+
+                // --- UI HELPERS ---
+                isSelected(attributeId, valueId) {
+                    return this.selectedOptions[attributeId] === valueId;
+                },
+
+                isOptionAvailable(valueId) {
+                    // An option is available if it exists in AT LEAST ONE stocked variant.
+                    for (const key in this.variants) {
+                        const variant = this.variants[key];
+                        if (variant.quantity > 0) {
+                            if (variant.attributeValueIds.includes(valueId)) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                }
+
+            })); // End of productDetails
+
             }); // End of alpine:init
         </script>
         

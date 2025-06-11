@@ -289,5 +289,80 @@ class CartController extends Controller
             $this->saveCart($cart); // Save modified cart
         }
         return $itemName;
+    } 
+
+    /**
+     * Set a specific quantity for an item, or remove it if quantity is 0.
+     * This is for AJAX updates from the PDP modal.
+     */
+    public function updateItem(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required|integer|exists:products,id',
+            'variant_id' => 'nullable|integer|exists:product_variants,id',
+            'quantity' => 'required|integer|min:0', // Allow 0 for removal
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Invalid data.', 'errors' => $validator->errors()], 422);
+        }
+
+        $productId = (int) $request->input('product_id');
+        $variantId = $request->input('variant_id') ? (int) $request->input('variant_id') : null;
+        $newQuantity = (int) $request->input('quantity');
+
+        // Determine stock limit
+        $stock = $variantId
+            ? (ProductVariant::find($variantId)->quantity ?? 0)
+            : (Product::find($productId)->quantity ?? 0);
+
+        if ($newQuantity > $stock) {
+            return response()->json(['success' => false, 'message' => 'Not enough stock available. Only ' . $stock . ' left.'], 422);
+        }
+
+        $cartItemId = $productId . ($variantId ? '-' . $variantId : '');
+        $cart = $this->getCart();
+
+        if ($newQuantity > 0) {
+            // Add or update item in cart
+            if (isset($cart[$cartItemId])) {
+                $cart[$cartItemId]['quantity'] = $newQuantity;
+            } else {
+                // Item is not in cart, need to add it fully
+                $product = Product::find($productId);
+                $priceAtAdd = $product->price;
+                $variantDisplayNamePart = '';
+                
+                if($variantId) {
+                    $variant = ProductVariant::with('attributeValues.attribute')->find($variantId);
+                    $priceAtAdd = $variant->price;
+                    $variantDisplayNamePart = $variant->attributeValues->pluck('value')->join(' / ');
+                }
+
+                $cart[$cartItemId] = [
+                    'product_id' => $productId,
+                    'variant_id' => $variantId,
+                    'name_at_add' => $product->name,
+                    'variant_display_name_part' => $variantDisplayNamePart,
+                    'price_at_add' => $priceAtAdd,
+                    'quantity' => $newQuantity,
+                    'attributes_display' => [], // Add this if needed
+                ];
+            }
+        } else {
+            // Remove item if quantity is 0
+            unset($cart[$cartItemId]);
+        }
+
+        $this->saveCart($cart);
+        
+        // Return a full state update
+        return response()->json([
+            'success' => true,
+            'message' => 'Cart updated.',
+            'cart_items' => $this->getCart(), // Send back the entire cart session
+            'cart_distinct_items_count' => $this->getCartDistinctItemsCount(),
+            'cart_total_quantity' => $this->getCartTotalQuantity(),
+        ]);
     }
 }

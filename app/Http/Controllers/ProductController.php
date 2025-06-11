@@ -140,14 +140,15 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        if (!$product->is_active) { abort(404); }
+        if (!$product->is_active) { 
+            abort(404); 
+        }
 
-        // Eager load everything needed for the page
         $product->load([
             'categories' => fn($q) => $q->orderBy('categories.id'),
             'images' => fn($q) => $q->orderBy('position'),
             'brand:id,name,slug',
-            'variants' => fn($q) => $q->with(['attributeValues.attribute:id,name']),
+            'variants.attributeValues.attribute:id,name',
             'attributes.values',
             'approvedReviews.user:id,name'
         ]);
@@ -155,40 +156,29 @@ class ProductController extends Controller
 
         $variantData = collect();
         $optionsData = collect();
-        $hasVariantsForView = $product->variants_count > 1; 
-
-        Log::info("=== PRODUCT DEBUG START ===");
-        Log::info("Product ID: {$product->id}, Total Variants Found: {$product->variants_count}");
+        // This is the key variable for the view. True only for multi-variant products.
+        $hasVariantsForView = $product->variants_count > 1;
 
         if ($product->variants_count === 1) {
-            // SINGLE-VARIANT LOGIC: Flatten it to look like a simple product
             $singleVariant = $product->variants->first();
-            Log::info("Single variant detected (ID: {$singleVariant->id}). Flattening for view.");
-            
             $product->price = $singleVariant->price;
             $product->quantity = $singleVariant->quantity;
             $product->sku = $singleVariant->sku;
-
-            // Optional: Append variant name to product name for clarity
             $variantNameParts = $singleVariant->attributeValues->pluck('value');
             if ($variantNameParts->isNotEmpty()) {
                 $product->name .= ' - ' . $variantNameParts->join(' / ');
             }
-
-        } else if ($product->variants_count > 1) {
-            // MULTI-VARIANT LOGIC: Prepare data for Alpine
-            Log::info("Multi-variant product detected. Preparing variant and option data.");
-
+        } else if ($hasVariantsForView) { // Only if more than 1 variant
             $variantData = $product->variants->mapWithKeys(function ($variant) {
                 $key = $variant->attributeValues->sortBy('id')->pluck('id')->join('-');
                 return [$key => [
                     'id' => $variant->id,
                     'price' => (float) $variant->price,
                     'quantity' => (int) $variant->quantity,
-                    'attributeValues' => $variant->attributeValues->map(fn($v) => ['id' => $v->id])->values()->all(),
+                    // Pass only the IDs for JS key generation
+                    'attributeValueIds' => $variant->attributeValues->pluck('id')->all(),
                 ]];
             });
-
             $optionsData = $product->attributes->mapWithKeys(function ($attribute) {
                 return [$attribute->id => [
                     'name' => $attribute->name,
