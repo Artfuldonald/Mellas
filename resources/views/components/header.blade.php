@@ -72,12 +72,16 @@
                 @endauth
                 
                 {{-- Cart --}}
-                <a href="{{ route('cart.index') }}" class="flex items-center text-sm font-medium text-gray-700 hover:text-pink-600 p-1 sm:p-0">
+                <a href="{{ route('cart.index') }}"
+                   class="flex items-center text-sm font-medium text-gray-700 hover:text-pink-600 p-1 sm:p-0"
+                   x-data="{ count: {{ $cartDistinctItemsCountGlobal ?? 0 }} }"
+                   @cart-updated.window="count = $event.detail.cart_distinct_items_count"
+                >
                     <x-heroicon-o-shopping-cart class="w-6 h-6"/>
                     <span class="hidden md:inline ml-1">Cart</span>
-                    @if(isset($cartCountGlobal) && $cartCountGlobal > 0)
-                        <span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-pink-100 bg-pink-600 rounded-full">{{ $cartCountGlobal }}</span>
-                    @endif
+                    <template x-if="count > 0">
+                        <span x-text="count" class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-pink-100 bg-pink-600 rounded-full"></span>
+                    </template>
                 </a>
 
                 {{-- Mobile Menu Toggle for MAIN navigation (Account, Help, etc. on mobile) --}}

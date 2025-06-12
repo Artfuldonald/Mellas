@@ -23,15 +23,25 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Product::where('is_active', true)
-                        ->with([
-                            'images' => fn($q) => $q->orderBy('position')->limit(1),
-                        ])
-                        ->withCount([
-                            'variants',
-                            'approvedReviews as reviews_count'
-                        ])
-                        ->withAvg('approvedReviews as reviews_avg_rating', 'rating');
+        $baseProductFields = [
+        'products.id', 'products.name', 'products.slug', 'products.price',
+        'products.compare_at_price', 'products.quantity', // <-- IMPORTANT
+        'products.brand_id', // <-- Needed for brand relationship
+        'products.created_at',
+        // 'products.is_active' // Already filtered by where clause
+    ];
+
+        $query = Product::select($baseProductFields) // <-- ADD THIS SELECT
+                    ->where('products.is_active', true)
+                    ->with([
+                        'images' => fn($q) => $q->select(['id', 'product_id', 'path', 'alt'])->orderBy('position')->limit(1),
+                        'brand:id,name,slug', // Eager load the brand
+                    ])
+                    ->withCount([
+                        'variants', // <-- ENSURE THIS IS PRESENT
+                        'approvedReviews as reviews_count'
+                    ])
+                    ->withAvg('approvedReviews', 'rating'); 
 
         $activeCategory = null;
 
@@ -128,7 +138,7 @@ class ProductController extends Controller
             ]);
         }
 
-        return view('products.index', compact(
+         return view('products.index', compact(
             'products',
             'filterCategories',
             'brands', 
@@ -140,52 +150,45 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        if (!$product->is_active) { 
-            abort(404); 
-        }
+        if (!$product->is_active) { abort(404); }
 
-        $product->load([
-            'categories' => fn($q) => $q->orderBy('categories.id'),
-            'images' => fn($q) => $q->orderBy('position'),
-            'brand:id,name,slug',
-            'variants.attributeValues.attribute:id,name',
-            'attributes.values',
-            'approvedReviews.user:id,name'
-        ]);
-        $product->loadCount(['variants', 'approvedReviews']);
+    $product->load([
+        'categories' => fn($q) => $q->orderBy('categories.id'),
+        'images' => fn($q) => $q->orderBy('position'),
+        'brand:id,name,slug',
+        'variants.attributeValues.attribute:id,name',
+        'attributes.values',
+        'approvedReviews.user:id,name'
+    ]);
+    $product->loadCount(['variants', 'approvedReviews']);
 
-        $variantData = collect();
-        $optionsData = collect();
-        // This is the key variable for the view. True only for multi-variant products.
-        $hasVariantsForView = $product->variants_count > 1;
+    $variantData = collect();
+    $optionsData = collect();
+    $hasVariantsForView = $product->variants_count > 0;
 
-        if ($product->variants_count === 1) {
-            $singleVariant = $product->variants->first();
-            $product->price = $singleVariant->price;
-            $product->quantity = $singleVariant->quantity;
-            $product->sku = $singleVariant->sku;
-            $variantNameParts = $singleVariant->attributeValues->pluck('value');
-            if ($variantNameParts->isNotEmpty()) {
-                $product->name .= ' - ' . $variantNameParts->join(' / ');
-            }
-        } else if ($hasVariantsForView) { // Only if more than 1 variant
-            $variantData = $product->variants->mapWithKeys(function ($variant) {
-                $key = $variant->attributeValues->sortBy('id')->pluck('id')->join('-');
-                return [$key => [
-                    'id' => $variant->id,
-                    'price' => (float) $variant->price,
-                    'quantity' => (int) $variant->quantity,
-                    // Pass only the IDs for JS key generation
-                    'attributeValueIds' => $variant->attributeValues->pluck('id')->all(),
-                ]];
-            });
-            $optionsData = $product->attributes->mapWithKeys(function ($attribute) {
-                return [$attribute->id => [
-                    'name' => $attribute->name,
-                    'values' => $attribute->values->map(fn($v) => ['id' => $v->id, 'name' => $v->value])->toArray()
-                ]];
-            });
-        }
+    if ($hasVariantsForView) {
+        $variantData = $product->variants->mapWithKeys(function ($variant) {
+            $key = $variant->attributeValues->sortBy('id')->pluck('id')->join('-');
+            return [$key => [
+                'id' => $variant->id,
+                'price' => (float) $variant->price,
+                'quantity' => (int) $variant->quantity,
+                'attributeValueIds' => $variant->attributeValues->pluck('id')->all(),
+            ]];
+        });
+
+        $optionsData = $product->attributes->mapWithKeys(function ($attribute) {
+            return [$attribute->id => [
+                'name' => $attribute->name,
+                'values' => $attribute->values->map(fn($v) => ['id' => $v->id, 'name' => $v->value])->toArray()
+            ]];
+        });
+    }
+
+        $relatedProducts = $this->getRelatedProducts($product); // Using your dedicated method
+        $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : [];
+
+    
 
         Log::info("Options data structure: " . json_encode($optionsData, JSON_PRETTY_PRINT));
 
@@ -204,7 +207,21 @@ class ProductController extends Controller
         Log::info("Base product data: " . json_encode($baseProductData, JSON_PRETTY_PRINT));
         Log::info("=== PRODUCT DEBUG END ===");
 
-        // Your existing related products logic (keeping it clean)...
+        
+        $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : [];
+
+        return view('products.show', [
+        'product' => $product,
+        'variantDataForJs' => Js::from($variantData),
+        'optionsDataForJs' => Js::from($optionsData),
+        'hasVariantsForView' => $hasVariantsForView,
+        'relatedProducts' => $relatedProducts,
+        'userWishlistProductIds' => $userWishlistProductIds,
+    ]);
+    }
+
+    private function getRelatedProducts(Product $product) {
+
         $relatedProductsLimit = 10;
         $relatedProducts = collect();
         $loadedProductIds = [$product->id];
@@ -243,15 +260,7 @@ class ProductController extends Controller
         }
 
         $relatedProducts = $relatedProducts->unique('id')->take($relatedProductsLimit);
-        $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : [];
-
-        return view('products.show', [
-            'product' => $product,
-            'variantDataForJs' => Js::from($variantData),
-            'optionsDataForJs' => Js::from($optionsData),
-            'hasVariantsForView' => $hasVariantsForView, 
-            'relatedProducts' => $relatedProducts,
-            'userWishlistProductIds' => $userWishlistProductIds,
-        ]);
+        
+        return $relatedProducts->unique('id')->take($relatedProductsLimit);
     }
 }

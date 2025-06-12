@@ -49,7 +49,7 @@
                                                     @endforeach
                                                 </div>
                                             @endif
-                                            <p class="mt-1 text-sm font-medium text-gray-900">GH₵ {{ number_format($item['price'], 2) }}</p>
+                                            <p class="mt-1 text-sm font-medium text-gray-900">GH₵ {{ number_format($item['price_at_add'], 2) }}</p>
                                         </div>
 
                                         <div class="mt-4 sm:mt-0 sm:pr-9">

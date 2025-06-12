@@ -41,6 +41,11 @@ class CartController extends Controller
         return $totalQuantity;
     }
 
+    private function getCartDistinctItemsCount(): int
+    {
+        return count($this->getCart());
+    }
+
     /**
      * Display the cart page.
      */
@@ -192,11 +197,7 @@ class CartController extends Controller
 
         $this->saveCart($cart);
 
-        return response()->json([
-            'success' => true,
-            'message' => $displayName . ' added to cart!',
-            'cart_count' => $this->getCartTotalQuantity(),
-        ]);
+        return $this->getJsonResponse($displayName . ' added to cart!');
     }
 
     /**
@@ -364,5 +365,43 @@ class CartController extends Controller
             'cart_distinct_items_count' => $this->getCartDistinctItemsCount(),
             'cart_total_quantity' => $this->getCartTotalQuantity(),
         ]);
+    }
+
+    /**
+     * Remove an item from the cart via AJAX.
+     * This is different from the form-based remove method.
+     */
+    public function removeItem(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required|integer',
+            'variant_id' => 'nullable|integer',
+        ]);
+        if ($validator->fails()) { return response()->json(['success' => false, 'message' => 'Invalid request.'], 422); }
+        
+        $productId = (int) $request->input('product_id');
+        $variantId = $request->input('variant_id') ? (int) $request->input('variant_id') : null;
+        $cartItemId = $productId . ($variantId ? '-' . $variantId : '');
+        $cart = $this->getCart();
+
+        if (isset($cart[$cartItemId])) {
+            $itemName = $cart[$cartItemId]['name_at_add'];
+            unset($cart[$cartItemId]);
+            $this->saveCart($cart);
+
+            // Use the new helper to create the response
+            return $this->getJsonResponse($itemName . ' removed from cart!');
+        }
+
+        return $this->getJsonResponse('Item not found in cart.', false, 404);
+    }
+
+    private function getJsonResponse(string $message, bool $success = true, int $statusCode = 200)
+    {
+        return response()->json([
+            'success' => $success,
+            'message' => $message,
+            'cart_distinct_items_count' => $this->getCartDistinctItemsCount(), // <-- This is what the header needs
+        ], $statusCode);
     }
 }

@@ -219,6 +219,7 @@
         @stack('scripts')
         {{-- Script to trigger off-canvas menus from header buttons AND define Alpine component --}}
         <script>
+
             // Alpine.js component for the Amazon-style category sidebar
             // Define it globally so x-data can find it
             if (typeof window.amazonCategorySidebar === 'undefined') {
@@ -540,7 +541,69 @@
                     return false;
                 }
 
-            })); // End of productDetails
+            })); // End of productDetails            
+
+            //cart toggle button 
+            // In resources/views/layouts/app.blade.php, inside your `alpine:init` listener
+
+        Alpine.data('cartToggleButton', (config) => ({
+            productId: config.productId,
+            isInCart: config.initialIsInCart,
+            isLoading: false,
+
+            toggleCart() {
+                if (this.isLoading) return;
+                this.isLoading = true;
+
+                const endpoint = this.isInCart 
+                    ? '{{ route("cart.remove-item") }}' 
+                    : '{{ route("cart.add") }}';
+                
+                const payload = {
+                    product_id: this.productId,
+                    quantity: 1 // For cards, we add/remove 1 unit of a simple product
+                };
+
+                fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
+                .then(data => {
+                if (data.success) {
+                    this.isInCart = !this.isInCart;
+
+                    window.dispatchEvent(new CustomEvent('toast-show', { 
+                        detail: { type: 'success', message: data.message } 
+                    }));
+
+                // Dispatch the event that the header is listening for
+                if (data.cart_distinct_items_count !== undefined) {
+                    window.dispatchEvent(new CustomEvent('cart-updated', { 
+                        detail: { cart_distinct_items_count: data.cart_distinct_items_count } 
+                    }));
+                }
+                    } else {
+                        window.dispatchEvent(new CustomEvent('toast-show', { 
+                            detail: { type: 'error', message: data.message } 
+                        }));
+                    }
+                })
+                .catch(err => {
+                    window.dispatchEvent(new CustomEvent('toast-show', { 
+                        detail: { type: 'error', message: err.message || 'An error occurred.' } 
+                    }));
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
+            }
+        }));
 
             }); // End of alpine:init
         </script>

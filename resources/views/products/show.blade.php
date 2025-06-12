@@ -19,7 +19,7 @@
 
     <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <div class="max-w-7xl mx-auto">
-            {{-- Main Product Display Card --}}
+            {{--MAIN PRODUCT CARD--}}
             <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md lg:grid lg:grid-cols-3 lg:gap-8 items-start">
 
                {{-- Left Column: Product Images with HORIZONTAL Thumbnails Below --}}
@@ -66,18 +66,16 @@
                         
                     </div>
                 </div>
-
                 
-                {{-- Middle Column: Product Details & Actions --}}
+               {{-- Middle Column: Product Details --}}
                 <div class="lg:col-span-1 space-y-5"
-                    x-data="productDetails({
-                        productName: {{ Js::from($product->name) }},
-                        basePrice: {{ (float)$product->price }},
-                        baseQuantity: {{ (int)$product->quantity }},
-                        hasVariants: {{ $hasVariantsForView ? 'true' : 'false' }},
-                        optionsData: {{ $optionsDataForJs }},
-                        variantsData: {{ $variantDataForJs }}
-                    })">
+                     x-data="productPage({
+                         productId: {{ $product->id }},
+                         productName: {{ Js::from($product->name) }},
+                         productPrice: {{ (float)$product->price }},
+                         productQuantity: {{ (int)$product->quantity }},                         
+                         initialIsInCart: {{ session()->has("cart.{$product->id}") ? 'true' : 'false' }}
+                     })">
 
                     {{-- Top Section: Product Name and Wishlist Button --}}
                     <div class="flex items-start justify-between">
@@ -106,107 +104,73 @@
                         @endguest
                     </div>
 
-                    {{-- Brand --}}
-                    @if($product->brand)
+                     @if($product->brand)
                         <p class="text-sm">Brand: <a href="{{ route('brands.show', $product->brand->slug) }}" class="text-pink-600 hover:underline font-medium">{{ $product->brand->name }}</a></p>
                     @endif
-
-                    {{-- Ratings --}}
                     <div class="flex items-center gap-2">
-                        <div class="flex">
-                            @for ($i = 1; $i <= 5; $i++)
-                                <x-heroicon-s-star class="w-4 h-4 {{ $i <= round($product->approved_reviews_avg_rating ?? 0) ? 'text-yellow-400' : 'text-gray-300' }}" />
-                            @endfor
-                        </div>
+                        <div class="flex">@for ($i = 1; $i <= 5; $i++) <x-heroicon-s-star class="w-4 h-4 {{ $i <= round($product->approved_reviews_avg_rating ?? 0) ? 'text-yellow-400' : 'text-gray-300' }}" /> @endfor</div>
                         @if ($product->approved_reviews_count > 0)
                             <a href="#reviews" class="text-sm text-pink-600 hover:underline">({{ $product->approved_reviews_count }} verified ratings)</a>
                         @else
                             <a href="#reviews" class="text-sm text-pink-600 hover:underline">Be the first to review</a>
                         @endif
                     </div>
-                    
                     <hr class="border-gray-100" />
-
-                    {{-- Price --}}
-                    <div class="flex items-baseline gap-2">
-                        <span class="text-2xl font-bold text-gray-900" x-text="`GH₵ ${currentPrice.toFixed(2)}`"></span>
-                        @if($product->compare_at_price && $product->compare_at_price > $product->price)
-                            <span class="text-lg text-gray-500 line-through">GH₵ {{ number_format($product->compare_at_price, 2) }}</span>
-                        @endif
+                    <div class="space-y-1">
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-2xl font-bold text-gray-900">GH₵ {{ number_format($product->price, 2) }}</span>
+                        </div>
+                        <div class="text-sm min-h-[20px]">
+                            @if($product->quantity > 0)
+                                <p class="text-green-600 font-medium">In stock</p>
+                            @else
+                                <p class="text-red-600 font-medium">Out of stock</p>
+                            @endif
+                        </div>
                     </div>
 
-                    {{-- Stock Status --}}
-                    <div class="text-sm min-h-[20px]">
-                        <p x-text="stockMessage" :class="{ 'text-green-600': isInStock, 'text-red-600': !isInStock, 'text-orange-600': isLowStock }"></p>
-                    </div>
-                    
-                    {{-- VARIATION AVAILABLE SECTION --}}
-                    <div class="space-y-4" x-show="hasVariants">
-                        <h3 class="text-sm font-medium text-gray-900 uppercase">Variation Available</h3>
-                        <template x-for="(attributeData, attributeId) in options" :key="attributeId">
-                            <fieldset>
-                                <legend class="text-sm font-medium text-gray-700 mb-2" x-text="attributeData.name"></legend>
-                                <div class="flex flex-wrap gap-2">
-                                    <template x-for="value in attributeData.values" :key="value.id">
-                                        <label @click="selectOption(attributeId, value.id)"
-                                            :class="{
-                                                    'ring-2 ring-pink-500 border-pink-500 font-semibold': isSelected(attributeId, value.id),
-                                                    'border-gray-300': !isSelected(attributeId, value.id),
-                                                    'opacity-50 cursor-not-allowed': !isOptionAvailable(value.id)
-                                            }"
-                                            class="border rounded-md py-2 px-4 flex items-center justify-center text-sm uppercase cursor-pointer focus:outline-none transition-all">
-                                            <input type="radio" :name="`option_${attributeId}`" :value="value.id" class="sr-only" :disabled="!isOptionAvailable(value.id)">
-                                            <span x-text="value.name"></span>
-                                        </label>
-                                    </template>
-                                </div>
-                            </fieldset>
-                        </template>
+                    {{-- Quantity Input for Simple Products --}}
+                    <div class="mt-4">
+                        <label for="pdp-quantity" class="block text-sm font-medium text-gray-900 mb-1">Quantity</label>
+                        <div class="relative flex items-center max-w-[8rem]">
+                            <button type="button" @click="quantity > 1 ? quantity-- : null" class="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-l-lg p-2.5 h-10 disabled:opacity-50" :disabled="quantity <= 1">-</button>
+                            <input type="number" id="pdp-quantity" x-model.number="quantity" min="1" :max="productQuantity" class="bg-gray-50 border-x-0 border-gray-300 h-10 text-center text-gray-900 text-sm">
+                            <button type="button" @click="quantity < productQuantity ? quantity++ : null" class="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-r-lg p-2.5 h-10 disabled:opacity-50" :disabled="quantity >= productQuantity">+</button>
+                        </div>
                     </div>
 
-                    {{-- Action Area: Cart Messages & Buttons (NEW LOGIC) --}}
-                <div class="mt-auto pt-4 space-y-4">
-                    {{-- Action Message (for "Please select a variant" prompt) --}}
-                    <div x-show="cartActionMessage" x-transition class="border px-3 py-2 rounded-md text-sm"
-                        :class="{ 'bg-red-100 border-red-300 text-red-800': cartActionMessageType === 'error', 'bg-green-100 border-green-300 text-green-800': cartActionMessageType === 'success' }">
-                        <span x-text="cartActionMessage"></span>
-                    </div>
+                    {{-- Action Area --}}
+                    <div class="mt-auto pt-4">
+                        <button type="button" @click="toggleCart()"
+                                :disabled="isLoading || productQuantity <= 0"
+                                class="w-full flex items-center justify-center rounded-md border border-transparent px-8 py-3 text-base font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                :class="{
+                                    'bg-pink-600 hover:bg-pink-700': !isInCart,
+                                    'bg-red-600 hover:bg-red-700': isInCart
+                                }">
+                            
+                            {{-- Loading Spinner --}}
+                            <svg x-show="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            
+                            {{-- Add to Cart Icon/Text --}}
+                            <template x-if="!isInCart">
+                                <span class="flex items-center">
+                                    <x-heroicon-o-shopping-cart class="w-6 h-6 mr-3"/>
+                                    <span x-text="isLoading ? 'Adding...' : 'Add to Cart'"></span>
+                                </span>
+                            </template>
 
-                    {{-- Main "Add to Cart" Button --}}
-                    {{-- Shows for simple products OR for variant products BEFORE a variant is selected --}}
-                    <div x-show="isSimpleProduct() || !currentVariant">
-                        <button type="button" @click="handleAddToCartAttempt()"
-                                :disabled="!isAnythingPurchasable() || isLoading"
-                                class="w-full flex items-center justify-center rounded-md border border-transparent bg-pink-600 px-8 py-3 text-base font-medium text-white hover:bg-pink-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors">
-                            <svg x-show="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" ...></svg>
-                            <x-heroicon-o-shopping-cart class="w-6 h-6 mr-3" x-show="!isLoading" />
-                            <span x-text="isLoading ? 'Adding...' : 'Add to Cart'"></span>
+                            {{-- Remove from Cart Icon/Text --}}
+                            <template x-if="isInCart">
+                                <span class="flex items-center">
+                                    <x-heroicon-o-trash class="w-6 h-6 mr-3"/>
+                                    <span x-text="isLoading ? 'Removing...' : 'Remove from Cart'"></span>
+                                </span>
+                            </template>
                         </button>
                     </div>
 
-                    {{-- Quantity Stepper for SELECTED Variant --}}
-                    <div x-show="!isSimpleProduct() && getQuantityInCart(currentVariant?.id) > 0" x-cloak>
-                            <div @click="openVariantModal()" class="relative flex items-center justify-between max-w-xs mx-auto border border-gray-300 rounded-md cursor-pointer hover:border-pink-500">
-                                <button type="button" class="p-2.5 h-12 text-gray-700">
-                                    <x-heroicon-s-minus class="w-5 h-5"/>
-                                </button>
-                                <div class="text-center">
-                                    <span class="font-semibold" x-text="getQuantityInCart(currentVariant.id)"></span>
-                                    <span> item(s) added</span>
-                                </div>
-                                <button type="button" class="p-2.5 h-12 text-gray-700">
-                                    <x-heroicon-s-plus class="w-5 h-5"/>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    @if($product->short_description)
-                        <div class="mt-6 text-sm text-gray-600 space-y-2 prose prose-sm max-w-none prose-pink">
-                            {!! nl2br(e($product->short_description)) !!}
-                        </div>
-                    @endif
-                </div>                   
+                </div> {{-- End Middle Column --}}            
 
                 {{-- Right Column: Delivery & Returns --}}
                 <div class="lg:col-span-1 mt-8 lg:mt-0">
@@ -432,156 +396,79 @@
 
 @push('scripts')
 <script>
-    // In your @push('scripts') block in products.show.blade.php
-
 document.addEventListener('alpine:init', () => {
 
-    Alpine.data('productDetails', (config) => ({
-        // --- DATA & STATE ---
-        basePrice: config.basePrice,
-        baseQuantity: config.baseQuantity,
-        hasVariants: config.hasVariants,
-        options: config.optionsData,
-        variants: config.variantsData, // all variants (stocked or not) for lookup
-        allStockedVariants: [], // only variants with quantity > 0 for modal
+    Alpine.data('productPage', (config) => ({
+        // --- Data from Blade ---
+        productId: config.productId,
+        productName: config.productName,
+        productPrice: config.productPrice,
+        productQuantity: config.productQuantity,
         
+        // --- Component State ---
+        isInCart: config.initialIsInCart, // Is this specific simple product in the cart?
         isLoading: false,
-        currentPrice: 0,
-        stockMessage: '',
-        isInStock: false,
-        isLowStock: false,
-        selectedOptions: {},
-        currentVariant: null, // The variant object based on current page selection
-        cartActionMessage: '',
-        cartActionMessageType: '',
-        
-        // NEW: Local state to track quantities of items in cart
-        cartItems: {}, // { 'variantId': quantity }
+        quantity: 1, // The quantity the user selects on the page
 
-        // --- INITIALIZATION ---
-        init() {
-            this.currentPrice = this.basePrice;
-            if (this.hasVariants) {
-                Object.keys(this.options).forEach(attrId => { this.selectedOptions[parseInt(attrId)] = null; });
-            }
-            
-            this.allStockedVariants = Object.values(this.variants).filter(v => v.quantity > 0);
-            
-            // Listen for global cart updates to sync local state
-            window.addEventListener('cart-updated', (event) => {
-                this.syncCartState(event.detail.cart_items || {});
-            });
-
-            // Initial sync with session cart data (passed via a script tag)
-            this.syncCartState(JSON.parse(document.getElementById('pdp-initial-cart-state').textContent || '{}'));
-            
-            this.updateDisplay();
-        },
-        
-        // --- NEW: Cart State Management ---
-        syncCartState(cartData) {
-            let newCartItems = {};
-            for(const key in cartData) {
-                const item = cartData[key];
-                if (item.product_id === config.productId) {
-                    if (item.variant_id) {
-                        newCartItems[item.variant_id] = item.quantity;
-                    } else { // Simple product
-                        newCartItems['simple'] = item.quantity;
-                    }
-                }
-            }
-            this.cartItems = newCartItems;
-            this.updateDisplay();
-        },
-        
-        getQuantityInCart(variantId) {
-            return this.cartItems[variantId] || 0;
-        },
-
-        // --- REST OF THE LOGIC ---
-        isSimpleProduct() { /* ... as before ... */ },
-        areAllOptionsSelectedOnPage() { /* ... as before ... */ },
-        isAnythingPurchasable() { /* ... as before ... */ },
-        isOptionAvailable(valueId) { /* ... as before ... */ },
-        isSelected(attributeId, valueId) { /* ... as before ... */ },
-        getVariantName(attributeValueIds) { /* ... same logic as getVariantNameForModal before ... */ },
-        
-        selectOption(attributeId, valueId) {
-            if (this.isSelected(attributeId, valueId)) { this.selectedOptions[attributeId] = null; }
-            else { this.selectedOptions[attributeId] = valueId; }
-            
-            // When an option is selected, add 1 to cart immediately
-            if(this.areAllOptionsSelectedOnPage()) {
-                const variant = this.getVariantFromSelection();
-                if (variant && this.getQuantityInCart(variant.id) === 0) {
-                    this.updateCart(variant, 1);
-                }
-            }
-            this.updateDisplay();
-        },
-        
-        getVariantFromSelection() {
-            if (!this.areAllOptionsSelectedOnPage()) return null;
-            const key = Object.values(this.selectedOptions).sort((a,b) => a-b).join('-');
-            return this.variants[key] || null;
-        },
-
-        updateDisplay() {
-            // ... (your existing updateDisplay logic for price and stock message) ...
-        },
-        
-        openVariantModal() {
-            this.$dispatch('open-modal', 'select-variation-modal');
-        },
-        
-        handleAddToCartAttempt() {
-            // This is now only for simple products or the initial click for variants
-            this.cartActionMessage = '';
-            if (this.isSimpleProduct()) {
-                if (this.baseQuantity > 0) { this.updateCart(null, 1); }
-            } else {
-                this.cartActionMessage = 'Please select a variation to add to cart.';
-                this.cartActionMessageType = 'error';
-                if(this.cartActionMessage) { setTimeout(() => { this.cartActionMessage = ''; }, 4000); }
-            }
-        },
-
-        updateCart(variant, newQuantity) {
+        // --- The Core Method ---
+        toggleCart() {
             if (this.isLoading) return;
             this.isLoading = true;
+
+            const endpoint = this.isInCart 
+                ? '{{ route("cart.remove-item") }}' 
+                : '{{ route("cart.add") }}';
             
-            let payload = {
-                product_id: config.productId,
-                quantity: newQuantity, // This is the new TOTAL quantity for this item
-                variant_id: variant ? variant.id : null,
-                update_mode: true // Signal to controller to set quantity, not add
+            const payload = {
+                product_id: this.productId,
+                quantity: this.quantity, // Use the quantity from the input
+                // No variant_id needed for this simple case
             };
-            
-            // The route should now point to a new or updated controller method
-            fetch('{{ route("cart.update_item") }}', { /* ... fetch options ... */ })
+
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            })
             .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
             .then(data => {
                 if (data.success) {
-                    window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'success', message: data.message } }));
-                    // The 'cart-updated' event should contain the full cart state
-                    if (data.cart_items !== undefined) {
-                        window.dispatchEvent(new CustomEvent('cart-updated', { detail: { 
-                            cart_items: data.cart_items,
-                            cart_distinct_items_count: data.cart_distinct_items_count
-                        }}));
+                    // Update state based on which action was just performed
+                    this.isInCart = !this.isInCart;
+
+                    // Dispatch toast notification
+                    window.dispatchEvent(new CustomEvent('toast-show', { 
+                        detail: { type: 'success', message: data.message } 
+                    }));
+
+                    // Dispatch event for header cart count update
+                    if (data.cart_distinct_items_count !== undefined) {
+                        window.dispatchEvent(new CustomEvent('cart-updated', { 
+                            detail: { cart_distinct_items_count: data.cart_distinct_items_count } 
+                        }));
                     }
                 } else {
-                    window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message } }));
+                    window.dispatchEvent(new CustomEvent('toast-show', { 
+                        detail: { type: 'error', message: data.message || 'An operation failed.' } 
+                    }));
                 }
-            }).catch(err => {
-                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: err.message || 'An error occurred.' } }));
-            }).finally(() => {
+            })
+            .catch(err => {
+                console.error('Cart toggle error:', err);
+                window.dispatchEvent(new CustomEvent('toast-show', { 
+                    detail: { type: 'error', message: err.message || 'An error occurred.' } 
+                }));
+            })
+            .finally(() => {
                 this.isLoading = false;
             });
         }
     }));
+
 });
 </script>
-
 @endpush

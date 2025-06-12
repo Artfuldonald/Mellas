@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Category;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use App\Events\OrderPlaced;         
 use App\Listeners\UpdateStockLevel; 
@@ -86,16 +87,40 @@ class AppServiceProvider extends ServiceProvider
             }
 
             // Cart Count for Header
-            if (!isset($view->cartCountGlobal)) {
-                $cart = Session::get('cart', []); 
-                $cartCountGlobal = 0;
-                foreach ($cart as $item) {
-                    if (isset($item['quantity'])) { // Add a check for quantity
-                        $cartCountGlobal += $item['quantity'];
-                    }
-                }
-                $view->with('cartCountGlobal', $cartCountGlobal);
-            }
+            if (!isset($view->cartDistinctItemsCountGlobal)) {
+            $cartDistinctItemsCountGlobal = count(Session::get('cart', []));
+            $view->with('cartDistinctItemsCountGlobal', $cartDistinctItemsCountGlobal);
+        }
         });
+
+        /**
+     * Custom Blade directive to check if a product (or any of its variants) is in the cart.
+     * Usage: @if_in_cart($product) ... @endif
+     */
+    Blade::if('if_in_cart', function ($product) {
+        if (!$product) {
+            return false;
+        }
+
+        $cart = session('cart', []);
+
+        // Check for simple product first
+        if (isset($cart[$product->id])) {
+            return true;
+        }
+
+        // If it's a variant product, check if any of its variant IDs exist as a key prefix
+        // This is more robust than looping through all cart items
+        if ($product->variants_count > 0) {
+            // This checks if any key in the cart array starts with "PRODUCT_ID-"
+            foreach (array_keys($cart) as $cartItemId) {
+                if (is_string($cartItemId) && Str::startsWith($cartItemId, $product->id . '-')) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    });
     }
 }
