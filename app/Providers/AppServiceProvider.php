@@ -88,8 +88,8 @@ class AppServiceProvider extends ServiceProvider
 
             // Cart Count for Header
             if (!isset($view->cartDistinctItemsCountGlobal)) {
-            $cartDistinctItemsCountGlobal = count(Session::get('cart', []));
-            $view->with('cartDistinctItemsCountGlobal', $cartDistinctItemsCountGlobal);
+            $cartDistinctItemsCountGlobal = count(session('cart', []));
+            $view->with('cartDistinctItemsCountGlobal', $cartDistinctItemsCountGlobal);        
         }
         });
 

@@ -35,6 +35,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'stripe/*',          // Example: Exclude all Stripe webhooks
             'webhooks/*',        // Example: Exclude all under /webhooks
         ]);
+       
+        // This middleware will set headers to prevent caching
+         $middleware->appendToGroup('web', [
+            \App\Http\Middleware\PreventCaching::class,
+        ]);
     })
     
     ->withExceptions(function (Exceptions $exceptions) {

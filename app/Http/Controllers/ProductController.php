@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Support\Js;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -148,76 +149,76 @@ class ProductController extends Controller
         ));
     }
 
-    public function show(Product $product)
+   public function show(Product $product)
     {
-        if (!$product->is_active) { abort(404); }
+        // --- Eager load all necessary Eloquent relationships ---
+        $product->load([
+            'images',
+            'brand',
+            'variants.attributeValues.attribute',
+            'attributes.values',
+            'approvedReviews' // For count and avg
+        ]);
+        $product->loadCount('approvedReviews');
+        $product->loadAvg('approvedReviews as average_rating', 'rating');
 
-    $product->load([
-        'categories' => fn($q) => $q->orderBy('categories.id'),
-        'images' => fn($q) => $q->orderBy('position'),
-        'brand:id,name,slug',
-        'variants.attributeValues.attribute:id,name',
-        'attributes.values',
-        'approvedReviews.user:id,name'
-    ]);
-    $product->loadCount(['variants', 'approvedReviews']);
+        // --- Prepare data for Reviews and Related Products partials ---
+        $reviews = $product->approvedReviews()->latest()->take(5)->get(); // Example: get 5 latest
+        $relatedProducts = $this->getRelatedProducts($product); // Your existing logic for this
+        $ratingDistribution = $this->getRatingDistribution($product); // A new helper for this
 
-    $variantData = collect();
-    $optionsData = collect();
-    $hasVariantsForView = $product->variants_count > 0;
-
-    if ($hasVariantsForView) {
-        $variantData = $product->variants->mapWithKeys(function ($variant) {
-            $key = $variant->attributeValues->sortBy('id')->pluck('id')->join('-');
-            return [$key => [
-                'id' => $variant->id,
-                'price' => (float) $variant->price,
-                'quantity' => (int) $variant->quantity,
-                'attributeValueIds' => $variant->attributeValues->pluck('id')->all(),
-            ]];
-        });
-
-        $optionsData = $product->attributes->mapWithKeys(function ($attribute) {
-            return [$attribute->id => [
-                'name' => $attribute->name,
-                'values' => $attribute->values->map(fn($v) => ['id' => $v->id, 'name' => $v->value])->toArray()
-            ]];
-        });
-    }
-
-        $relatedProducts = $this->getRelatedProducts($product); // Using your dedicated method
-        $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : [];
-
-    
-
-        Log::info("Options data structure: " . json_encode($optionsData, JSON_PRETTY_PRINT));
-
-        // Base product data
-        $baseProductData = [
+        // --- BUILD THE $productDataForView ARRAY ---
+        // This array mimics the structure your new Blade partials expect.
+        $productDataForView = [
             'id' => $product->id,
             'name' => $product->name,
-            'price' => (float) $product->price,
-            'compare_at_price' => $product->compare_at_price ? (float) $product->compare_at_price : null,
-            'quantity' => (int) $product->quantity,
-            'is_active' => (bool) $product->is_active,
-            'has_variants' => $product->variants->count() > 0,
-            'is_available' => $product->is_active && $product->quantity > 0
+            'brand' => $product->brand?->name ?? 'Unbranded',
+            'price' => (float)$product->price,
+            'original_price' => (float)$product->compare_at_price,
+            'discount' => ($product->compare_at_price > $product->price) ? round((($product->compare_at_price - $product->price) / $product->compare_at_price) * 100) : 0,
+            'rating' => round($product->average_rating ?? 0, 1),
+            'review_count' => (int)$product->approved_reviews_count,
+            'in_stock' => $product->is_available, // Assuming you have an 'is_available' accessor
+            'stock_count' => (int)$product->quantity, // For simple products
+            'images' => $product->images->pluck('image_url')->all(),
+            'description' => $product->description,
+            'features' => $product->features ?? [], // Assuming 'features' is a casted array/json attribute
+            'specifications' => (array)$product->specifications, // Cast to array
+            
+            // This is the most complex part: transforming Eloquent variants into the simple structure
+            'variants' => $this->transformVariantsForView($product),
+
+            'shipping' => [ // Example shipping data
+                'free' => $product->price > 150,
+                'estimated_days' => '2-3 business days',
+                'return_policy' => '30-day free returns',
+            ],
         ];
 
-        Log::info("Base product data: " . json_encode($baseProductData, JSON_PRETTY_PRINT));
-        Log::info("=== PRODUCT DEBUG END ===");
-
-        
-        $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : [];
-
         return view('products.show', [
-        'product' => $product,
-        'variantDataForJs' => Js::from($variantData),
-        'optionsDataForJs' => Js::from($optionsData),
-        'hasVariantsForView' => $hasVariantsForView,
-        'relatedProducts' => $relatedProducts,
-        'userWishlistProductIds' => $userWishlistProductIds,
-    ]);
+            'product' => $productDataForView,
+            'reviews' => $reviews, // Pass the Eloquent collection to the review partial
+            'relatedProducts' => $relatedProducts, // Pass Eloquent collection
+            'ratingDistribution' => $ratingDistribution
+        ]);
+    }
+
+    // Helper to transform variants
+    private function transformVariantsForView($product)
+    {
+        $transformed = [];
+        foreach ($product->attributes as $attribute) {
+            // Use snake_case for the key, e.g., 'colors', 'sizes'
+            $key = strtolower(Str::plural($attribute->name));
+            $transformed[$key] = $attribute->values->pluck('value')->all();
+        }
+        return $transformed;
+    }
+
+    // Helper for rating distribution
+    private function getRatingDistribution(Product $product) {
+        // In a real app, you would calculate this with a proper DB query
+        return [ /* Mock data as before */ ];
     }
 
     private function getRelatedProducts(Product $product) {

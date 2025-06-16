@@ -60,9 +60,10 @@
                 @auth
                     <a href="{{ route('wishlist.index') }}"
                     class="flex items-center text-sm font-medium text-gray-700 hover:text-pink-600 p-1 sm:p-0"
-                    x-data="{ count: {{ $wishlistCountGlobal ?? 0 }} }" {{-- Initialize with View Composer value --}}
-                    @wishlist-updated.window="count = $event.detail.count" {{-- Listen for global event --}}
+                    x-data="{ count: {{ $wishlistCountGlobal ?? 0 }} }"
+                    @wishlist-updated.window="count = $event.detail.count"
                     >
+                        {{-- Wishlist Icon with Count --}}
                         <x-heroicon-o-heart class="w-6 h-6"/>
                         <span class="hidden md:inline ml-1">Wishlist</span>
                         <template x-if="count > 0">
@@ -72,11 +73,12 @@
                 @endauth
                 
                 {{-- Cart --}}
-                <a href="{{ route('cart.index') }}"
+                 <a href="{{ route('cart.index') }}"
                    class="flex items-center text-sm font-medium text-gray-700 hover:text-pink-600 p-1 sm:p-0"
                    x-data="{ count: {{ $cartDistinctItemsCountGlobal ?? 0 }} }"
                    @cart-updated.window="count = $event.detail.cart_distinct_items_count"
-                >
+                   >
+                    {{-- Cart Icon with Count --}}
                     <x-heroicon-o-shopping-cart class="w-6 h-6"/>
                     <span class="hidden md:inline ml-1">Cart</span>
                     <template x-if="count > 0">

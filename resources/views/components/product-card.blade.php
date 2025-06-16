@@ -130,9 +130,9 @@
                 @else
                     {{-- For simple products, use the Alpine cartToggleButton with the new helper function --}}
                     <div x-data="cartToggleButton({
-                            productId: {{ $product->id }},
-                            initialIsInCart: {{ is_product_in_cart($product) ? 'true' : 'false' }}
-                        })">
+                        productId: {{ $product->id }},
+                        initialIsInCart: {{ is_product_in_cart($product) ? 'true' : 'false' }}
+                    })">
                         <button @click="toggleCart()"
                                 :disabled="isLoading"
                                 class="block w-full text-center rounded px-2 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-not-allowed"
