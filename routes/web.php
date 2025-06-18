@@ -49,6 +49,7 @@ Route::middleware(['auth'])->prefix('wishlist')->name('wishlist.')->group(functi
     Route::post('/remove/{product}', [WishlistController::class, 'remove'])->name('remove');
 });
 
+// Cart routes
 Route::prefix('cart')->name('cart.')->group(function () {
     Route::get('/', [CartController::class, 'index'])->name('index');
     Route::post('/add', [CartController::class, 'add'])->name('add'); // AJAX endpoint from PDP

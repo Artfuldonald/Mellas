@@ -1,4 +1,3 @@
-{{-- resources/views/layouts/app.blade.php --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
@@ -13,7 +12,7 @@
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
         <!-- Styles & Scripts (Using Vite) -->
-        @vite(['resources/css/app.css', 'resources/js/app.js']) {{-- Ensure Alpine.js is part of your app.js build --}}
+        @vite(['resources/css/app.css', 'resources/js/app.js']) 
 
         @stack('styles')
         <style>
@@ -28,31 +27,20 @@
 
         {{-- Data attribute for JS to know current route (used by sidebar active states if any) --}}
         <div class="min-h-screen flex flex-col" data-current-route="{{ Route::currentRouteName() ?? '' }}">
-
-            {{-- Header Component --}}
+          
             <x-header />
-
-            <!-- Page Content -->
-            <main class="flex-grow">
-                {{-- The $slot will contain the specific page's layout (e.g., 3 columns for homepage) --}}
+           
+            <main class="flex-grow">               
                 {{ $slot }}
             </main>
-
-            {{-- Footer Component --}}
+           
             <x-footer />
 
             {{-- ***** "ALL CATEGORIES" OFF-CANVAS MENU (Amazon Style) ***** --}}
             <div id="allCategoriesOffcanvasMenu"
-                 class="fixed inset-0 z-50 flex" {{-- Removed initial transform, Alpine handles it --}}
+                 class="fixed inset-0 z-50 flex"
                  x-data="amazonCategorySidebar({
-                    allCategories: {{ Js::from(
-                        // Map your $navCategories (from View Composer) to the structure expected by amazonCategorySidebar
-                        // This structure should be an array of L1 category objects.
-                        // Each L1 object should have an 'id', 'name', 'slug', 'isLinkOnly' (boolean),
-                        // and a 'children' array for L2.
-                        // Each L2 object should have 'id', 'name', 'slug', 'isLinkOnly',
-                        // and a 'children' array for L3.
-                        // L3 objects just need 'id', 'name', 'slug', and 'isLinkOnly' (true).
+                    allCategories: {{ Js::from(                       
                         ($navCategories ?? collect())->map(function ($l1Category) {
                             return [
                                 'id' => $l1Category->id,
@@ -69,12 +57,12 @@
                                             'id' => $l3Category->id,
                                             'name' => $l3Category->name,
                                             'slug' => $l3Category->slug,
-                                            'isLinkOnly' => true // L3 are always direct links
-                                        ])->values()->all() // Ensure L3 children is an array
+                                            'isLinkOnly' => true 
+                                        ])->values()->all() 
                                     ];
-                                })->values()->all() // Ensure L2 children is an array
+                                })->values()->all() 
                             ];
-                        })->values()->all() // Ensure top level is an array
+                        })->values()->all() 
                     ) }}
                  })"
                  x-init="
@@ -408,6 +396,13 @@
                     toastIdCounter: 0,
                     defaultDuration: 3000, // Increased duration
 
+                    init() {
+                        // Listen for toast-show events
+                        window.addEventListener('toast-show', (event) => {
+                            this.showToast(event.detail);
+                        });
+                    },
+
                     showToast(detail) {
                         const id = this.toastIdCounter++;
                         const type = detail.type || 'info';
@@ -442,216 +437,196 @@
                     }
                 })); // End of toastHandler
 
+                // 3. Product Details Component (UPDATED WITH VARIANT LOGIC)
+                Alpine.data('productDetails', (productData) => ({
+                    product: productData,
+                    selectedImage: 0,
+                    selectedVariants: {},
+                    quantity: 1,
+                    isLoading: false,
+                    isModalOpen: false,
 
-                // --- The COMPLETE and CORRECTED productDetails component ---
-                Alpine.data('productDetails', (config) => ({
-                    // --- DATA from Blade (Your existing properties) ---
-                    basePrice: config.basePrice,
-                    baseQuantity: config.baseQuantity,
-                    hasVariants: config.hasVariants,
-                    options: config.optionsData,
-                    variants: config.variantsData,
-
-                    // --- STATE (Your existing properties + new ones for cart actions) ---
-                    currentPrice: 0,
-                    stockMessage: '',
-                    isInStock: false,
-                    isLowStock: false,
-                    selectedOptions: {},
-                    currentVariant: null,
-                    
-                    // NEW properties for handling cart actions
-                    productId: config.productId, // We need the product ID
-                    quantity: 1, // Quantity for simple products
-                    isLoading: false, // To show spinner on the button
-                    cartActionMessage: '',
-                    cartActionMessageType: '',
-
-                    // --- INITIALIZATION ---
                     init() {
-                        this.currentPrice = this.basePrice;
-                        if (this.hasVariants) {
-                            Object.keys(this.options).forEach(attrId => {
-                                this.selectedOptions[parseInt(attrId)] = null;
-                            });
+                        // Set default variant selections if variants exist
+                        if (this.product.variants && Object.keys(this.product.variants).length > 0) {
+                            for (const attribute in this.product.variants) {
+                                if (this.product.variants[attribute].length > 0) {
+                                    this.selectedVariants[attribute] = this.product.variants[attribute][0];
+                                }
+                            }
                         }
-                        this.updateDisplay();
                     },
 
-                    // --- LOGIC METHODS (Your existing methods) ---
-                    selectOption(attributeId, valueId) {
-                        const numericAttrId = parseInt(attributeId);
-                        if (this.selectedOptions[numericAttrId] === valueId) {
-                            this.selectedOptions[numericAttrId] = null;
-                        } else {
-                            this.selectedOptions[numericAttrId] = valueId;
-                        }
-                        this.updateDisplay();
+                    // Check if product has variants
+                    get hasVariants() {
+                        return this.product.variants && Object.keys(this.product.variants).length > 0;
                     },
 
-                    updateDisplay() {
+                    // Check if all required variants are selected
+                    get allVariantsSelected() {
+                        if (!this.hasVariants) return true;
+                        return Object.keys(this.product.variants).every(attr => this.selectedVariants[attr]);
+                    },
+
+                    // Get current price based on selected variants
+                    get currentPrice() {
+                        if (!this.hasVariants || !this.allVariantsSelected) {
+                            return this.product.price;
+                        }
+                        
+                        // Find the variant price based on selected options
+                        for (const [attribute, value] of Object.entries(this.selectedVariants)) {
+                            if (this.product.variant_stock && this.product.variant_stock[attribute] && this.product.variant_stock[attribute][value]) {
+                                return this.product.variant_stock[attribute][value].price;
+                            }
+                        }
+                        
+                        return this.product.price;
+                    },
+
+                    // Get current stock based on selected variants
+                    get currentStock() {
+                        if (!this.hasVariants || !this.allVariantsSelected) {
+                            return this.product.stock_count;
+                        }
+                        
+                        // Find the variant stock based on selected options
+                        for (const [attribute, value] of Object.entries(this.selectedVariants)) {
+                            if (this.product.variant_stock && this.product.variant_stock[attribute] && this.product.variant_stock[attribute][value]) {
+                                return this.product.variant_stock[attribute][value].stock;
+                            }
+                        }
+                        
+                        return this.product.stock_count;
+                    },
+
+                    // Get max quantity available
+                    get maxQuantity() {
+                        return Math.max(1, this.currentStock);
+                    },
+
+                    // Open modal
+                    openModal() {
+                        this.isModalOpen = true;
+                        document.body.style.overflow = 'hidden';
+                    },
+
+                    // Close modal
+                    closeModal() {
+                        this.isModalOpen = false;
+                        document.body.style.overflow = '';
+                    },
+
+                    // Select variant
+                    selectVariant(attribute, value) {
+                        this.selectedVariants[attribute] = value;
+                        // Reset quantity if it exceeds new stock limit
+                        if (this.quantity > this.currentStock) {
+                            this.quantity = Math.min(this.quantity, this.currentStock);
+                        }
+                    },
+
+                    // Handle add to cart button click
+                    handleAddToCart() {
                         if (!this.hasVariants) {
-                            this.isInStock = this.baseQuantity > 0;
-                            this.isLowStock = this.isInStock && this.baseQuantity <= 10;
-                            this.stockMessage = this.isLowStock ? `${this.baseQuantity} items left` : (this.isInStock ? 'In stock' : 'Out of stock');
-                            this.currentPrice = this.basePrice;
+                            // No variants, add directly to cart
+                            this.addToCart();
+                        } else if (!this.allVariantsSelected) {
+                            // Has variants but not all selected, show alert
+                            window.dispatchEvent(new CustomEvent('toast-show', {
+                                detail: { type: 'warning', message: 'Please select all product options first.' }
+                            }));
+                        } else {
+                            // Has variants and all selected, open modal
+                            this.openModal();
+                        }
+                    },
+                    
+                    addToCart(fromModal = false) {
+                        if (!this.product.in_stock || this.isLoading) return;
+                        
+                        // Check stock availability
+                        if (this.quantity > this.currentStock) {
+                            window.dispatchEvent(new CustomEvent('toast-show', {
+                                detail: { type: 'error', message: 'Insufficient stock available.' }
+                            }));
                             return;
                         }
                         
-                        const allOptionsSelected = Object.values(this.selectedOptions).every(v => v !== null);
-                        if (allOptionsSelected) {
-                            const key = Object.values(this.selectedOptions).sort((a, b) => a - b).join('-');
-                            this.currentVariant = this.variants[key] || null;
-                            if (this.currentVariant) {
-                                this.currentPrice = this.currentVariant.price;
-                                this.isInStock = this.currentVariant.quantity > 0;
-                                this.isLowStock = this.isInStock && this.currentVariant.quantity <= 10;
-                                this.stockMessage = this.isLowStock ? `${this.currentVariant.quantity} items left` : (this.isInStock ? 'In stock' : 'Out of stock');
-                            } else {
-                                this.currentPrice = this.basePrice;
-                                this.isInStock = false; this.isLowStock = false;
-                                this.stockMessage = 'This combination is not available';
-                            }
-                        } else {
-                            this.currentPrice = this.basePrice;
-                            this.currentVariant = null;
-                            this.isInStock = Object.values(this.variants).some(v => v.quantity > 0);
-                            this.isLowStock = false;
-                            this.stockMessage = this.isInStock ? 'Select options' : 'Out of stock';
-                        }
-                    },
-
-                    isSelected(attributeId, valueId) {
-                        return this.selectedOptions[attributeId] === valueId;
-                    },
-
-                    isOptionAvailable(valueId) {
-                        for (const key in this.variants) {
-                            const variant = this.variants[key];
-                            if (variant.quantity > 0 && variant.attributeValueIds.includes(valueId)) {
-                                return true;
-                            }
-                        }
-                        return false;
-                    },
-
-                    // --- NEW METHODS for Quantity and Cart Actions ---
-                    isAnythingPurchasable() {
-                        if (!this.hasVariants) return this.baseQuantity > 0;
-                        return Object.values(this.variants).some(v => v.quantity > 0);
-                    },
-
-                    incrementQuantity() { if (this.quantity < this.baseQuantity) { this.quantity++; } },
-                    decrementQuantity() { if (this.quantity > 1) { this.quantity--; } },
-
-                    handleAddToCartAttempt() {
-                        if (this.isLoading) return;
-                        this.cartActionMessage = '';
-
-                        if (!this.hasVariants) { // Simple Product
-                            if (this.baseQuantity > 0 && this.quantity <= this.baseQuantity) {
-                                this.performAddToCart(this.productId, null, this.quantity);
-                            } else { this.showError(`Only ${this.baseQuantity} items available.`); }
-                        } else { // Variant Product
-                            if (Object.values(this.selectedOptions).every(v => v !== null)) {
-                                if (this.currentVariant && this.currentVariant.quantity > 0) {
-                                    this.performAddToCart(this.productId, this.currentVariant.id, 1);
-                                } else { this.showError('This combination is not available.'); }
-                            } else {
-                                this.showError('Please select a variation to add to cart.');
-                            }
-                        }
-                    },
-
-                    performAddToCart(productId, variantId, quantity) {
                         this.isLoading = true;
-                        let payload = { product_id: productId, quantity: quantity };
-                        if (variantId) { payload.variant_id = variantId; }
+                        
+                        // Prepare variant data for the cart
+                        let variantData = {};
+                        if (this.hasVariants && this.allVariantsSelected) {
+                            // Find the specific variant ID
+                            for (const [attribute, value] of Object.entries(this.selectedVariants)) {
+                                if (this.product.variant_stock && this.product.variant_stock[attribute] && this.product.variant_stock[attribute][value]) {
+                                    variantData.variant_id = this.product.variant_stock[attribute][value].variant_id;
+                                    break;
+                                }
+                            }
+                            variantData.attributes = this.selectedVariants;
+                        }
+                        
+                        const payload = {
+                            product_id: this.product.id,
+                            quantity: this.quantity,
+                            variant_data: variantData,
+                        };
                         
                         fetch('{{ route("cart.add") }}', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' },
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                                'Accept': 'application/json',
+                            },
                             body: JSON.stringify(payload)
                         })
                         .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
                         .then(data => {
                             if (data.success) {
-                                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'success', message: data.message } }));
-                                if (data.cart_distinct_items_count !== undefined) {
-                                    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_distinct_items_count } }));
+                                // Close modal if opened from modal
+                                if (fromModal) {
+                                    this.closeModal();
+                                }
+                                
+                                // Update header and show toast
+                                window.dispatchEvent(new CustomEvent('toast-show', { 
+                                    detail: { type: 'success', message: data.message } 
+                                }));
+                                if (data.cart_count !== undefined) {
+                                    window.dispatchEvent(new CustomEvent('cart-updated', { 
+                                        detail: { count: data.cart_count } 
+                                    }));
                                 }
                             } else {
-                                this.showError(data.message);
-                            }
-                        }).catch(err => {
-                            this.showError(err.message || 'An error occurred.');
-                        }).finally(() => {
-                            this.isLoading = false;
-                        });
-                    },
-
-                    showError(msg) {
-                        this.cartActionMessage = msg;
-                        this.cartActionMessageType = 'error';
-                        setTimeout(() => { this.cartActionMessage = ''; }, 4000);
-                    }
-                }));                 
-
-            //cart toggle button 
-             Alpine.data('cartToggleButton', (config) => ({
-                productId: config.productId,
-                isInCart: config.initialIsInCart,
-                isLoading: false,
-
-                toggleCart() {
-                    if (this.isLoading) return;
-                    this.isLoading = true;
-
-                    const endpoint = this.isInCart ? '{{ route("cart.remove-item") }}' : '{{ route("cart.add") }}';
-                    const payload = { product_id: this.productId, quantity: 1 };
-
-                    fetch(endpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                            'Accept': 'application/json',
-                        },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
-                    .then(data => {
-                        if (data.success) {
-                            // 1. Update its own state
-                            this.isInCart = !this.isInCart;
-                            
-                            // 2. Dispatch a toast notification
-                            window.dispatchEvent(new CustomEvent('toast-show', { 
-                                detail: { type: 'success', message: data.message } 
-                            }));
-
-                            // 3. Dispatch the 'cart-updated' event for the header to hear
-                            if (data.cart_distinct_items_count !== undefined) {
-                                window.dispatchEvent(new CustomEvent('cart-updated', { 
-                                    detail: { cart_distinct_items_count: data.cart_distinct_items_count } 
+                                window.dispatchEvent(new CustomEvent('toast-show', { 
+                                    detail: { type: 'error', message: data.message } 
                                 }));
                             }
-                        } else {
+                        })
+                        .catch(err => { 
+                            console.error('Cart Error:', err);
                             window.dispatchEvent(new CustomEvent('toast-show', { 
-                                detail: { type: 'error', message: data.message } 
+                                detail: { type: 'error', message: err.message || 'Failed to add to cart. Please try again.' } 
                             }));
-                        }
-                    })
-                    .catch(err => {
-                        window.dispatchEvent(new CustomEvent('toast-show', { 
-                            detail: { type: 'error', message: err.message || 'An error occurred.' } 
-                        }));
-                    })
-                    .finally(() => {
-                        this.isLoading = false;
-                    });
-                }           
-                }));
+                        })
+                        .finally(() => { 
+                            this.isLoading = false; 
+                        });
+                    },
+                })); // End of productDetails               
+
+            
+                // Update the cart-updated event listener to work with session-based cart
+                window.addEventListener('cart-updated', (event) => {
+                    // Update cart count in header if needed
+                    const cartCountElement = document.querySelector('[data-cart-count]');
+                    if (cartCountElement && event.detail.cart_distinct_items_count !== undefined) {
+                        cartCountElement.textContent = event.detail.cart_distinct_items_count;
+                    }
+                });
 
             }); // End of alpine:init
         </script>
