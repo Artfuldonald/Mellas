@@ -64,13 +64,20 @@ class DashboardController extends Controller
             'labels' => $weeklyLabels,
             'values' => $revenueWeekly->pluck('total')->all(),
         ];
-
-
+       
         // --- Recent Orders (Transactions) Table ---
-        $recentOrders = Order::with('user')
-                             ->latest()
-                             ->take(8)
-                             ->get();
+        $recentOrders = Order::select([
+            'id', 
+            'user_id', 
+            'order_number', 
+            'total_amount', 
+            'status', 
+            'created_at'
+        ])
+        ->with('user:id,name') 
+        ->latest()
+        ->take(8)
+        ->get();
 
         // --- Top 5 Selling Products (with first image) ---
         $topProductIds = OrderItem::select('product_id', DB::raw('SUM(quantity) as total_quantity_sold'))

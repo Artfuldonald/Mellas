@@ -3,7 +3,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\BrandController;
-use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\ReviewController as ClientReviewController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WishlistController;
 use App\Http\Controllers\Admin\OrderController;
@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\AdminBrandController;
 use App\Http\Controllers\Admin\ShippingZoneController;
 use App\Http\Controllers\Webhook\MtnMomoWebhookController;
 use App\Http\Controllers\ProductController as PublicProductController;
+use App\Http\Controllers\Admin\ReviewController;
 
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home'); 
@@ -36,7 +37,7 @@ Route::get('/products', [PublicProductController::class, 'index'])->name('produc
 Route::get('/products/{product:slug}', [PublicProductController::class, 'show'])->name('products.show');
 
 // Route for submitting reviews
-Route::post('/products/{product}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
+Route::post('/reviews', [ClientReviewController::class, 'store'])->name('reviews.store');
 
 // Route for client brands
 Route::get('/brands', [BrandController::class, 'index'])->name('brands.index'); // Page to list all brands
@@ -100,6 +101,12 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
         'create', 'store',  
     ]);
 
+     Route::prefix('reviews')->name('reviews.')->group(function () {
+        Route::get('/', [ReviewController::class, 'index'])->name('index');
+        Route::patch('/{review}/approve', [ReviewController::class, 'approve'])->name('approve');
+        Route::patch('/{review}/unapprove', [ReviewController::class, 'unapprove'])->name('unapprove');
+        Route::delete('/{review}', [ReviewController::class, 'destroy'])->name('destroy');
+    });
     //want destroy later:
         // Route::delete('orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
     //});
@@ -110,11 +117,10 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->name('admin.')->group(fun
         'create', 'store', 'destroy'
     ]);
     Route::post('customers/{customer}/send-reset-link', [CustomerController::class, 'sendPasswordResetLink'])
-        ->name('customers.send_reset_link');
-
+        ->name('customers.send_reset_link');    
+        
     //Route::get('settings', [App\Http\Controllers\Admin\SettingController::class, 'index'])
     //->name('settings.index');    
-
     Route::resource('shipping-zones', ShippingZoneController::class);
 
         // Nested routes for managing RATES *within* a specific Zone

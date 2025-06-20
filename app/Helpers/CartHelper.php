@@ -1,38 +1,47 @@
 <?php
 
+namespace App\Helpers;
+
+use App\Models\Cart;
 use App\Models\Product;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
+
+class CartHelper
+{
+    /**
+     * Get the current cart items for the user or session.
+     * This can be a singleton to avoid multiple DB calls per request.
+     */
+    protected static $cartItems = null;
+
+    public static function getCartContents()
+    {
+        if (self::$cartItems === null) {
+            $query = Auth::check()
+                ? Cart::where('user_id', auth()->id())
+                : Cart::where('session_id', session()->getId());
+            
+            self::$cartItems = $query->get();
+        }
+        return self::$cartItems;
+    }
+
+    /**
+     * Check if a simple product is already in the cart.
+     */
+    public static function isProductInCart(Product $product): bool
+    {
+        // We only care about simple products here (no variant_id)
+        return self::getCartContents()
+            ->where('product_id', $product->id)
+            ->whereNull('variant_id')
+            ->isNotEmpty();
+    }
+}
 
 if (!function_exists('is_product_in_cart')) {
-    /**
-     * Checks if a product (or any of its variants) is in the session cart.
-     *
-     * @param Product|null $product
-     * @return bool
-     */
-    function is_product_in_cart(?Product $product): bool
+    function is_product_in_cart(\App\Models\Product $product): bool
     {
-        if (!$product) {
-            return false;
-        }
-
-        $cart = session('cart', []);
-
-        // Check for the simple product itself (e.g., key '4')
-        if (isset($cart[$product->id])) {
-            return true;
-        }
-
-        // If it's a product with variants, check if any cart item key starts with "productId-"
-        // We can check this even if variants aren't loaded, using the count.
-        if ($product->variants_count > 0) {
-            foreach (array_keys($cart) as $cartItemId) {
-                if (is_string($cartItemId) && Str::startsWith($cartItemId, $product->id . '-')) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return \App\Helpers\CartHelper::isProductInCart($product);
     }
 }

@@ -15,8 +15,17 @@ class OrderController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Order::with('user') // Eager load user for display
-                      ->latest(); // Default sort by newest
+        $query = Order::select([
+                'id', 
+                'user_id',          // Required for the 'user' relationship
+                'order_number', 
+                'status',
+                'payment_status',
+                'total_amount', 
+                'created_at'
+            ])
+            ->with('user:id,name') // Also optimized to only get user's id and name
+            ->latest();
 
         // --- Filtering ---
         if ($request->filled('status')) {

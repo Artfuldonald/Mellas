@@ -1,3 +1,4 @@
+{{-- /views/products/show.blade.php --}}
 <x-app-layout :title="$productData['name'] . ' | ' . $productData['brand']">
 
     {{-- Breadcrumbs using the transformed array --}}

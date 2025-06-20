@@ -164,7 +164,7 @@ class ProductController extends Controller
         $productDataForView = $this->transformProductForView($product);
 
         // --- Data for other partials ---
-        $reviews = $product->approvedReviews()->latest()->take(5)->get();
+        $reviews = $product->approvedReviews()->with('user')->latest()->paginate(5);
         $ratingDistribution = $this->getRatingDistribution($product);
         $relatedProducts = $this->getRelatedProducts($product); // Use your existing helper
         $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : [];

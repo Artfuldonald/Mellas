@@ -68,13 +68,21 @@ class Product extends Model
     {
         return $this->hasMany(ProductImage::class);
     }
+    
+    public function primaryImage()
+    {
+        return $this->hasOne(ProductImage::class)->orderBy('position', 'asc');
+    }
 
+    public function firstImage()
+    {
+        return $this->hasOne(ProductImage::class)->oldest('id');
+    }
    
     public function reviews(): HasMany 
     {
         return $this->hasMany(Review::class);
     }
-
    
     public function approvedReviews(): HasMany 
     {

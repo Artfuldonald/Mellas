@@ -40,6 +40,7 @@
 
             <x-admin-nav-item route="admin.orders.index" icon="shopping-cart" class="sidebar-nav-item" data-route-name="admin.orders.index">Orders</x-admin-nav-item>
             <x-admin-nav-item route="admin.customers.index" icon="users" class="sidebar-nav-item" data-route-name="admin.customers.index">Customers</x-admin-nav-item> 
+            <x-admin-nav-item route="admin.reviews.index" icon="chat-bubble-left-ellipsis" class="sidebar-nav-item" data-route-name="admin.reviews.index">Reviews</x-admin-nav-item>
 
             <x-admin-nav-dropdown title="Settings" icon="cog-6-tooth" :child-routes="json_encode(['admin.admin-users.*', 'admin.shipping-zones.*', 'admin.tax-rates.*'])"> {{-- Add tax pattern --}}
                 <x-admin-nav-item route="admin.shipping-zones.index" icon="truck">Shipping</x-admin-nav-item>

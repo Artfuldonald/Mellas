@@ -13,6 +13,8 @@ class ProductImage extends Model
         'alt', 
         'position'
     ];
+
+    protected $appends = ['image_url'];
     
     public function product()
     {

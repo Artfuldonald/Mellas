@@ -1,3 +1,4 @@
+{{--views/products/partials/reviews.blade.php--}}
 <div class="space-y-8">
     <div>
         <h2 class="text-2xl font-bold mb-6">Customer Reviews</h2>

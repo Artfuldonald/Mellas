@@ -23,8 +23,9 @@ class AdminUserController extends Controller
         // Gate::authorize('viewAny', User::class); // Example using policy
 
         // Use the scope to only get admin users
-        $query = User::isAdmin() // <-- USE THE SCOPE
-                     ->latest();
+        $query = User::select(['id', 'name', 'email', 'created_at']) 
+             ->isAdmin()
+             ->latest();
 
         // Filtering (optional for admins)
         if ($request->filled('search')) {

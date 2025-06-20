@@ -21,6 +21,15 @@
             .custom-scrollbar-mobile::-webkit-scrollbar-thumb { background: #d1d5db; /* gray-300 */ border-radius: 10px; }
             .custom-scrollbar-mobile::-webkit-scrollbar-thumb:hover { background: #9ca3af; /* gray-500 */ }
             [x-cloak] { display: none !important; }
+            input[type=number]::-webkit-inner-spin-button,
+            input[type=number]::-webkit-outer-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            /* For Firefox */
+            input[type=number] {
+                -moz-appearance: textfield;
+            }
         </style>
     </head>
     <body class="font-sans antialiased text-gray-800 bg-gray-50">

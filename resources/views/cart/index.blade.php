@@ -1,171 +1,244 @@
-{{-- resources/views/cart/index.blade.php --}}
 <x-app-layout title="Your Shopping Cart">
-    <div class="bg-pink-50 py-8 border-b border-pink-100">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <h1 class="text-3xl font-bold tracking-tight text-pink-800">Shopping Cart</h1>
-        </div>
-    </div>
 
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        @if(count($cartItems) > 0)
-            <div class="lg:grid lg:grid-cols-12 lg:gap-x-12 lg:items-start xl:gap-x-16">
-                <section aria-labelledby="cart-heading" class="lg:col-span-7 bg-white p-6 rounded-lg shadow-xl">
-                    <ul role="list" class="divide-y divide-gray-200 border-t border-b border-gray-200">
-                        @foreach($cartItems as $cartItemId => $item)
-                            <li class="flex py-6 sm:py-8">
-                                <div class="flex-shrink-0">
-                                    @php $productImage = $item->product?->images?->first(); @endphp
-                                    <img src="{{ $productImage?->image_url ?? asset('images/placeholder.png') }}"
-                                         alt="{{ $productImage?->alt ?? $item->product?->name }}"
-                                         class="w-24 h-24 rounded-md object-cover object-center sm:w-32 sm:h-32 border">
-                                </div>
-                                <div class="ml-4 flex-1 flex flex-col justify-between sm:ml-6">
-                                    <div class="relative pr-9 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:pr-0">
-                                        <div>
-                                            <div class="flex justify-between">
-                                                <h3 class="text-sm">
-                                                   <a href="{{ route('products.show', $item->product->slug) }}" class="font-medium text-gray-700 hover:text-pink-600">
-                                                        {{ $item->product->name }}
-                                                        @if (!empty($item->variant_data['attributes']))
-                                                            <span class="text-xs text-gray-500">
-                                                                - {{ implode(' / ', array_values($item->variant_data['attributes'])) }}
-                                                            </span>
-                                                        @endif
-                                                    </a>
-                                                </h3>
-                                            </div>
-                                            <p class="mt-1 text-sm font-medium text-gray-900">GH₵ {{ number_format($item['price_at_add'], 2) }}</p>
-                                        </div>
+    {{-- This Alpine.js component manages the entire state of the cart page --}}
+    <div x-data="cartPage({
+            initialItems: {{ Js::from($cartItems) }},
+            initialTotals: { 
+                subtotal: {{ $subtotal }}, 
+                tax: {{ $tax }}, 
+                shipping: {{ $shipping }},
+                grandTotal: {{ $total }}
+            }
+        })"
+         class="bg-pink-50/50 min-h-screen py-8 md:py-16">
+        <div class="container mx-auto px-4">
 
-                                        <div class="mt-4 sm:mt-0 sm:pr-9">
-                                            <form class="update-cart-quantity" data-product-id="{{ $item->product_id }}">
-                                                <div class="flex items-center">
-                                                    <input type="number" name="quantity" value="{{ $item->quantity }}" min="1" max="99"
-                                                           class="w-16 text-center border-gray-300 rounded-md shadow-sm focus:ring-pink-500 focus:border-pink-500 sm:text-sm">
-                                                    <button type="submit" class="ml-2 text-xs text-pink-600 hover:text-pink-800">Update</button>
-                                                </div>
-                                            </form>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-8 text-center">Shopping Cart</h1>
 
-                                            <div class="absolute top-0 right-0">
-                                                <button class="remove-cart-item -m-2 p-2 inline-flex text-gray-400 hover:text-pink-500"
-                                                        data-product-id="{{ $item->product_id }}">
-                                                    <span class="sr-only">Remove</span>
-                                                    <x-heroicon-o-x-mark class="h-5 w-5" aria-hidden="true" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </li>
-                        @endforeach
-                    </ul>
-                    <div class="mt-6">
-                        <button id="clear-cart" class="text-sm font-medium text-pink-600 hover:text-pink-500">
-                            <x-heroicon-o-trash class="w-4 h-4 inline-block mr-1" /> Clear entire cart
-                        </button>
-                    </div>
-                </section>
-
-                <!-- Order Summary -->
-                <section class="mt-16 bg-pink-50 rounded-lg px-4 py-6 sm:p-6 lg:p-8 lg:mt-0 lg:col-span-5 shadow-xl">
-                    <h2 class="text-lg font-medium text-gray-900">Order summary</h2>
-                    <dl class="mt-6 space-y-4">
-                        <div class="flex items-center justify-between">
-                            <dt class="text-sm text-gray-600">Subtotal</dt>
-                            <dd class="text-sm font-medium text-gray-900">GH₵ {{ number_format($subtotal, 2) }}</dd>
-                        </div>
-                        <div class="border-t border-pink-200 pt-4 flex items-center justify-between">
-                            <dt class="text-base font-medium text-gray-900">Order total</dt>
-                            <dd class="text-base font-medium text-gray-900">GH₵ {{ number_format($subtotal, 2) }}</dd>
-                        </div>
-                    </dl>
-
-                    <div class="mt-6">
-                        <a href="#" {{-- TODO: add checkout route --}}
-                           class="w-full bg-pink-600 border border-transparent rounded-lg shadow-sm py-3 px-4 text-base font-medium text-white text-center hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-pink-50 focus:ring-pink-500">
-                            Proceed to Checkout
-                        </a>
-                    </div>
-                </section>
-            </div>
-        @else
-            <div class="text-center py-16 bg-white rounded-lg shadow-xl">
-                <x-heroicon-o-shopping-cart class="mx-auto h-16 w-16 text-pink-400"/>
-                <h3 class="mt-4 text-xl font-semibold text-gray-900">Your Cart is Empty</h3>
-                <p class="mt-2 text-base text-gray-500">Looks like you haven't added anything to your cart yet.</p>
-                <div class="mt-8">
+            {{-- Empty Cart State --}}
+            <template x-if="items.length === 0">
+                <div class="bg-white rounded-xl shadow-lg p-8 text-center max-w-lg mx-auto">
+                    <x-heroicon-o-shopping-cart class="w-20 h-20 mx-auto text-pink-200" />
+                    <h2 class="mt-4 text-2xl font-semibold text-gray-700">Your cart is empty</h2>
+                    <p class="mt-2 text-gray-500">Add some lovely items to get started.</p>
                     <a href="{{ route('products.index') }}"
-                       class="inline-flex items-center px-6 py-3 border border-transparent shadow-lg text-base font-medium rounded-lg text-white bg-pink-600 hover:bg-pink-700">
-                        <x-heroicon-s-shopping-bag class="-ml-1 mr-2 h-5 w-5" />
-                        Start Shopping
+                       class="mt-6 inline-block bg-pink-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-pink-700 transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg">
+                        Continue Shopping
                     </a>
                 </div>
-            </div>
-        @endif
+            </template>
+
+            {{-- Cart with Items --}}
+            <template x-if="items.length > 0">
+                <div class="flex flex-col lg:flex-row gap-8 xl:gap-12">
+
+                    {{-- Left Side: Cart Items List --}}
+                    <div class="w-full lg:w-[65%]">
+                        <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                            <div class="flex justify-between items-center border-b border-gray-200 pb-4 mb-4">
+                                <h2 class="text-xl font-semibold text-gray-800">
+                                   Cart Items (<span x-text="items.length"></span>)
+                                </h2>
+                                <button @click="clearCart()" :disabled="isLoading"
+                                        class="text-sm font-medium text-gray-500 hover:text-red-600 transition-colors flex items-center gap-1 disabled:opacity-50">
+                                    <svg x-show="isLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-pink-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <x-heroicon-o-trash x-show="!isLoading" class="w-4 h-4" />
+                                    Clear Cart
+                                </button>
+                            </div>
+
+                            <div class="space-y-5">
+                                <template x-for="item in items" :key="item.id">
+                                    <div class="relative flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border border-gray-100 rounded-lg hover:shadow-md hover:border-pink-200 transition-all duration-300">
+                                        <button @click="removeItem(item.id)"
+                                                class="absolute top-2 right-2 text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition-colors"
+                                                title="Remove item">
+                                            <x-heroicon-o-x-mark class="w-5 h-5"/>
+                                        </button>
+                                        <div class="flex items-start flex-grow w-full pr-6">
+                                            <a :href="`/products/${item.product.slug}`">
+                                                <img :src="(item.product.images && item.product.images.length > 0) ? item.product.images[0].image_url : '{{ asset('images/placeholder.png') }}'"
+                                                     :alt="item.product.name" class="w-24 h-24 object-cover rounded-md mr-4 border border-gray-200">
+                                            </a>
+                                            <div class="flex-grow">
+                                                <a :href="`/products/${item.product.slug}`" class="font-semibold text-gray-800 hover:text-pink-600 transition-colors text-base" x-text="item.product.name"></a>
+                                                <div class="text-sm text-gray-500 mt-1" x-show="item.variant_data && item.variant_data.attributes">
+                                                    <template x-for="(value, attribute) in item.variant_data.attributes" :key="attribute">
+                                                        <span>
+                                                            <span class="capitalize" x-text="attribute"></span>: <span class="font-medium text-gray-700" x-text="value"></span><span class="mr-2"></span>
+                                                        </span>
+                                                    </template>
+                                                </div>
+                                                <p class="text-sm text-gray-600 mt-2">
+                                                    Unit Price: <span x-text="formatCurrency(item.price_at_add)"></span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="relative flex items-center space-x-6 w-full sm:w-auto justify-between mt-2 sm:mt-0">
+                                            <div x-show="item.isUpdating" x-transition.opacity
+                                                 class="absolute inset-0 bg-white/70 rounded-md flex items-center justify-center z-10">
+                                                <svg class="animate-spin h-5 w-5 text-pink-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                            </div>
+
+                                            <div class="flex items-center border border-gray-300 rounded-md">
+                                                <button @click="updateQuantity(item, item.quantity - 1)" :disabled="item.isUpdating || item.quantity <= 1" class="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">-</button>
+                                                <input type="number" x-model.number.debounce.500ms="item.quantity" @change="updateQuantity(item, item.quantity)" :disabled="item.isUpdating"
+                                                       class="w-14 text-center border-l border-r border-gray-300 focus:ring-pink-500 focus:border-pink-500 text-base" min="1" max="10">
+                                                <button @click="updateQuantity(item, item.quantity + 1)" :disabled="item.isUpdating" class="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed">+</button>
+                                            </div>
+                                            <p class="font-semibold w-24 text-right text-lg text-gray-800" x-text="formatCurrency(item.price_at_add * item.quantity)"></p>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Right Side: Order Summary --}}
+                    <div class="w-full lg:w-[35%]">
+                        <div class="bg-white rounded-xl shadow-lg p-6 sticky top-8">
+                             <h2 class="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-4 mb-4">Order Summary</h2>
+                             <div class="space-y-4 text-gray-600">
+                                <div class="flex justify-between"><span>Subtotal</span><span class="font-medium text-gray-800" x-text="formatCurrency(totals.subtotal)"></span></div>
+                                <div class="flex justify-between"><span>Shipping</span><span class="font-medium text-gray-800" x-text="formatCurrency(totals.shipping)"></span></div>
+                                <div class="flex justify-between"><span>Taxes (8%)</span><span class="font-medium text-gray-800" x-text="formatCurrency(totals.tax)"></span></div>
+                             </div>
+                             <div class="border-t border-gray-200 mt-4 pt-4">
+                                <div class="flex justify-between items-center text-xl font-.bold text-gray-900">
+                                    <span>Grand Total</span>
+                                    <span class="text-pink-600" x-text="formatCurrency(totals.grandTotal)"></span>
+                                </div>
+                             </div>
+                             <a href="#" {{-- Link to your checkout page --}}
+                                class="mt-6 block w-full text-center bg-pink-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-pink-700 transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg">
+                                Proceed to Checkout
+                             </a>
+                             <p class="text-xs text-gray-400 text-center mt-4">Safe & Secure Payments</p>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
     </div>
 
     @push('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Update quantity
-            document.querySelectorAll('.update-cart-quantity').forEach(form => {
-                form.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    const productId = this.dataset.productId;
-                    const quantity = this.querySelector('input[name="quantity"]').value;
+        function cartPage(config) {
+            return {
+                items: [],
+                totals: config.initialTotals, // This now correctly receives the object built above
+                isLoading: false,
 
-                    fetch("{{ route('cart.update-item') }}", {
-                        method: "POST",
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        },
-                        body: JSON.stringify({ product_id: productId, quantity })
-                    }).then(res => res.json()).then(data => {
-                        if (data.success) location.reload();
-                        else alert(data.message);
-                    });
-                });
-            });
+                init() {
+                    this.items = config.initialItems.map(item => ({ ...item, isUpdating: false }));
+                },
 
-            // Remove item
-            document.querySelectorAll('.remove-cart-item').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    if (!confirm('Remove this item?')) return;
+                formatCurrency(amount) {
+                    return new Intl.NumberFormat('en-US', { style: 'currency', 'currency': 'USD' }).format(amount);
+                },
 
-                    const productId = this.dataset.productId;
-
-                    fetch("{{ route('cart.remove-item') }}", {
-                        method: "POST",
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        },
-                        body: JSON.stringify({ product_id: productId })
-                    }).then(res => res.json()).then(data => {
-                        if (data.success) location.reload();
-                        else alert(data.message);
-                    });
-                });
-            });
-
-            // Clear cart
-            document.querySelector('#clear-cart')?.addEventListener('click', function(e) {
-                e.preventDefault();
-                if (!confirm('Clear the entire cart?')) return;
-
-                fetch("{{ route('cart.clear') }}", {
-                    method: "POST",
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                handleResponse(data) {
+                    if (data.success) {
+                        this.totals = data.cart_totals;
+                        window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count }}));
+                        if (data.message) {
+                            window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'success', message: data.message }}));
+                        }
+                    } else {
+                        window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message || 'An unknown error occurred.' }}));
                     }
-                }).then(res => res.json()).then(data => {
-                    if (data.success) location.reload();
-                    else alert('Failed to clear cart');
-                });
-            });
-        });
+                },
+
+                updateQuantity(item, newQuantity) {
+                    if (newQuantity < 1) newQuantity = 1;
+                    if (newQuantity > 10) newQuantity = 10;
+                    if (item.quantity === newQuantity || item.isUpdating) return;
+
+                    item.isUpdating = true;
+
+                    fetch(`{{ route('cart.update-item') }}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json'},
+                        body: JSON.stringify({ cart_id: item.id, quantity: newQuantity })
+                    })
+                    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                    .then(({ ok, data }) => {
+                        if (ok) {
+                            item.quantity = newQuantity;
+                            this.handleResponse(data);
+                        } else {
+                            this.handleResponse(data);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Update Error:', err);
+                        window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'Could not connect to server.' }}));
+                    })
+                    .finally(() => {
+                        item.isUpdating = false; 
+                    });
+                },
+
+                removeItem(itemId) {
+                    this.isLoading = true;
+                    const originalItems = [...this.items];
+                    this.items = this.items.filter(i => i.id !== itemId);
+
+                    fetch(`{{ route('cart.remove-item') }}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json'},
+                        body: JSON.stringify({ cart_id: itemId })
+                    })
+                    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                    .then(({ ok, data }) => {
+                        if (ok) {
+                            this.handleResponse(data);
+                        } else {
+                            this.items = originalItems;
+                            this.handleResponse(data);
+                        }
+                    })
+                    .catch(err => { 
+                        this.items = originalItems;
+                        console.error('Remove Error:', err); 
+                    })
+                    .finally(() => {
+                        this.isLoading = false;
+                    });
+                },
+
+                clearCart() {
+                    if (!confirm('Are you sure you want to clear your entire cart?')) return;
+                    this.isLoading = true;
+
+                    fetch(`{{ route('cart.clear') }}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json'}
+                    })
+                    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                    .then(({ ok, data }) => {
+                        if (ok) {
+                            this.items = [];
+                            this.handleResponse(data);
+                        } else {
+                            this.handleResponse(data);
+                        }
+                    })
+                    .catch(err => console.error(err))
+                    .finally(() => {
+                        this.isLoading = false;
+                    });
+                }
+            }
+        }
     </script>
     @endpush
+
 </x-app-layout>
