@@ -61,7 +61,7 @@ class CartController extends Controller
             'variant_id' => $variantId,
             'quantity' => $request->quantity,
             'variant_data' => $request->variant_data,
-            'price' => $priceToUse,
+            'price_at_add' => $priceToUse,
         ];
 
         if (Auth::check()) {
@@ -163,21 +163,26 @@ class CartController extends Controller
         ]);
     }
 
-    public function remove(Cart $cartItem)
+    
+    public function clear()
     {
-        $this->authorizeCartItem($cartItem);
-        
-        $cartItem->delete();
+        $query = Cart::query();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Item removed from cart successfully',
-        ]);
+        if (Auth::check()) {
+            $query->where('user_id', Auth::id());
+        } else {
+            $query->where('session_id', session()->getId());
+        }
+
+        $query->delete();
+
+        return redirect()->route('cart.index')->with('success', 'Cart cleared.');
     }
+
 
     private function getCartItems()
     {
-        $query = Cart::with(['product', 'variant']);
+        $query = Cart::with(['product','product.images', 'variant']);
 
         if (Auth::check()) {
             $query->where('user_id', Auth::id());

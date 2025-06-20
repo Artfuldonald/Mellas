@@ -53,11 +53,11 @@ Route::middleware(['auth'])->prefix('wishlist')->name('wishlist.')->group(functi
 Route::prefix('cart')->name('cart.')->group(function () {
     Route::get('/', [CartController::class, 'index'])->name('index');
     Route::post('/add', [CartController::class, 'add'])->name('add'); // AJAX endpoint from PDP
-    Route::post('/update', [CartController::class, 'update'])->name('update'); // From cart page
-    Route::post('/remove', [CartController::class, 'remove'])->name('remove'); // From cart page
+    Route::post('/update', [CartController::class, 'update'])->name('update'); // From cart page    
     Route::post('/clear', [CartController::class, 'clear'])->name('clear');   // From cart page
     Route::post('/update-item', [CartController::class, 'updateItem'])->name('update-item');
-    Route::post('/remove-item', [CartController::class, 'removeItem'])->name('remove-item');
+    Route::post('/remove-item', [CartController::class, 'removeItem'])->name('remove-item');    
+
 });
 
 // --- MTN MOMO Route ---

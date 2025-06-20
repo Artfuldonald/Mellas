@@ -16,12 +16,12 @@ class Cart extends Model
         'variant_id',
         'quantity',
         'variant_data',
-        'price',
+        'price_at_add',
     ];
 
     protected $casts = [
         'variant_data' => 'array',
-        'price' => 'decimal:2',
+        'price_at_add' => 'decimal:2',
     ];
 
     public function product()
@@ -41,6 +41,6 @@ class Cart extends Model
 
     public function getTotalAttribute()
     {
-        return $this->price * $this->quantity;
+        return $this->price_at_add * $this->quantity;
     }
 }

@@ -1,3 +1,4 @@
+{{--views/products/partials/product-details.blade.php--}}
 <div x-data="productDetails({{ json_encode($productData) }})" class="grid lg:grid-cols-2 gap-6 lg:gap-8">
     <!-- Image Gallery -->
     <div class="space-y-3">

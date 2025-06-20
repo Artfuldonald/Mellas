@@ -177,8 +177,8 @@ class ProductController extends Controller
             'userWishlistProductIds' => $userWishlistProductIds
         ]);
     }
-
-    // This helper creates the array structure that your V0 design expects
+   
+    //array structure design expects
     private function transformProductForView(Product $product): array
     {
         $variantsTransformed = [];
