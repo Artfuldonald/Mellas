@@ -206,4 +206,29 @@ class CartController extends Controller
             'cart_count' => $this->getCartState()['item_count'],
         ]);
     }
+
+    public function removeSimpleProduct(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|integer|exists:products,id',
+        ]);
+
+        $query = Auth::check()
+            ? Cart::where('user_id', auth()->id())
+            : Cart::where('session_id', session()->getId());
+
+        $cartItem = $query->where('product_id', $validated['product_id'])
+                        ->whereNull('variant_id')
+                        ->first();
+
+        if ($cartItem) {
+            $cartItem->delete();
+        }
+
+        return response()->json([
+            'success'     => true,
+            'message'     => 'Item removed from cart.',
+            'cart_count'  => $this->getCartState()['item_count'],
+        ]);
+    }
 }

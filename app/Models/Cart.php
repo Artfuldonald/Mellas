@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Cart extends Model
 {
@@ -23,6 +24,19 @@ class Cart extends Model
         'variant_data' => 'array',
         'price_at_add' => 'decimal:2',
     ];
+
+    public static function getItemQuantity(int $productId): int
+    {
+        $query = Auth::check()
+            ? self::where('user_id', auth()->id())
+            : self::where('session_id', session()->getId());
+
+        $item = $query->where('product_id', $productId)
+                      ->whereNull('variant_id')
+                      ->first();
+
+        return $item ? $item->quantity : 0;
+    }
 
     public function product()
     {

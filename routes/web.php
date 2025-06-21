@@ -58,7 +58,7 @@ Route::prefix('cart')->name('cart.')->group(function () {
     Route::post('/clear', [CartController::class, 'clear'])->name('clear');   // From cart page
     Route::post('/update-item', [CartController::class, 'updateItem'])->name('update-item');
     Route::post('/remove-item', [CartController::class, 'removeItem'])->name('remove-item');    
-
+    Route::post('/remove-simple', [CartController::class, 'removeSimpleProduct'])->name('remove-simple');
 });
 
 // --- MTN MOMO Route ---

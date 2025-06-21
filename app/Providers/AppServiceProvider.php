@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Cart;
+use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -122,5 +124,17 @@ class AppServiceProvider extends ServiceProvider
         
         return false;
     });
+
+    Blade::if('isProductInCart', function (Product $product) {
+            // This logic checks if a simple product (no variant) is in the cart.
+            $query = Auth::check()
+                ? Cart::where('user_id', auth()->id())
+                : Cart::where('session_id', session()->getId());
+
+            return $query->where('product_id', $product->id)
+                         ->whereNull('variant_id')
+                         ->exists();
+        });
+
     }
 }

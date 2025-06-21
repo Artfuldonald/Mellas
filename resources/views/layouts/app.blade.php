@@ -334,21 +334,30 @@
 
              // --- ALPINE.JS COMPONENT DEFINITIONS ---
             document.addEventListener('alpine:init', () => {
-                // 1. Wishlist Button Component
+              
+                // *** 1. UPDATE THE WISHLIST COMPONENT ***
                 Alpine.data('wishlistButton', (config) => ({
                     productId: config.productId,
-                    isInWishlist: config.initialIsInWishlist || false,
+                    initialIsInWishlist: config.initialIsInWishlist || false,
+                    isAuthenticated: config.isAuthenticated,
+                    loginUrl: config.loginUrl,
+                    isInWishlist: false, // Will be set in init
                     isLoading: false,
-                    buttonTitle: '',
-
+                    
                     init() {
-                        this.updateTitle();                        
-                    },
-                    updateTitle() {
-                        this.buttonTitle = this.isInWishlist ? 'Remove from wishlist' : 'Add to wishlist';
+                        this.isInWishlist = this.initialIsInWishlist;
                     },
 
-                    // Toggle wishlist state
+                    // New handler checks for auth first
+                    handleClick() {
+                        if (!this.isAuthenticated) {
+                            window.location.href = this.loginUrl;
+                            return;
+                        }
+                        this.toggleWishlist();
+                    },
+
+                    // The actual AJAX toggle logic
                     toggleWishlist() {
                         if (this.isLoading) return;
                         this.isLoading = true;
@@ -362,44 +371,104 @@
                             headers: {
                                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                                 'Accept': 'application/json',
-                                'Content-Type': 'application/json' // Usually not needed for POST with ID in URL only
                             }
                         })
-                        .then(response => {
-                            if (!response.ok) {
-                                return response.json().then(errData => { throw errData; });
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.success !== undefined) {
+                        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                        .then(({ ok, data }) => {
+                            if (ok) {
                                 this.isInWishlist = data.is_in_wishlist;
-                                this.updateTitle();
                                 window.dispatchEvent(new CustomEvent('wishlist-updated', { detail: { count: data.wishlist_count } }));
-                                window.dispatchEvent(new CustomEvent('toast-show', { // Dispatch toast
-                                    detail: { type: data.success ? 'success' : (data.message.includes('already') ? 'info' : 'error'), message: data.message }
-                                }));
+                                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'success', message: data.message } }));
                             } else {
-                                window.dispatchEvent(new CustomEvent('toast-show', {
-                                    detail: { type: 'error', message: 'Unexpected response from server.' }
-                                }));
+                                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message || 'Could not update wishlist.' } }));
                             }
                         })
-                        .catch(errorDataOrNetworkError => {
-                            console.error('Wishlist toggle AJAX error:', errorDataOrNetworkError);
-                            let msg = 'Could not update wishlist. Please try again.';
-                            if(errorDataOrNetworkError && errorDataOrNetworkError.message) {
-                                msg = errorDataOrNetworkError.message;
-                            }
-                            window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: msg } }));
+                        .catch(err => {
+                            console.error('Wishlist toggle error:', err);
+                            window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'A network error occurred.' } }));
                         })
                         .finally(() => {
                             this.isLoading = false;
                         });
                     }
-                })); // End of wishlistButton
+                }));
 
-                // 2. Toast Handler Component
+
+                // *** 2. UPDATE/CREATE THE CART TOGGLE BUTTON COMPONENT ***
+                Alpine.data('productCardActions', (config) => ({
+                    productId: config.productId,
+                    quantity: config.initialQuantity || 0,
+                    maxStock: config.maxStock,
+                    isLoading: false,
+
+                    updateQuantity(newQuantity) {
+                        if (this.isLoading) return;
+                        
+                        // If new quantity is 0, we remove the item
+                        if (newQuantity <= 0) {
+                            this.removeFromCart();
+                            return;
+                        }
+
+                        // Don't allow adding more than stock
+                        if (newQuantity > this.maxStock) {
+                            window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'Not enough items in stock.' } }));
+                            return;
+                        }
+                        
+                        this.isLoading = true;
+                        
+                        const payload = {
+                            product_id: this.productId,
+                            quantity: newQuantity,
+                            variant_data: null,
+                        };
+                        
+                        // We use the 'cart.add' route which handles both adding and updating quantity
+                        fetch('{{ route("cart.add") }}', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' },
+                            body: JSON.stringify(payload)
+                        })
+                        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                        .then(({ ok, data }) => {
+                            if (ok) {
+                                this.quantity = newQuantity; // Update the local quantity
+                                if (data.cart_count !== undefined) {
+                                    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count } }));
+                                }
+                            } else {
+                                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message || 'Could not update cart.' } }));
+                            }
+                        })
+                        .catch(err => console.error('Cart update error:', err))
+                        .finally(() => this.isLoading = false);
+                    },
+
+                    removeFromCart() {
+                        this.isLoading = true;
+                        fetch('{{ route("cart.remove-simple") }}', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' },
+                            body: JSON.stringify({ product_id: this.productId })
+                        })
+                        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                        .then(({ ok, data }) => {
+                            if (ok) {
+                                this.quantity = 0; // Set quantity to 0 to show the 'Add to Cart' button again
+                                if (data.cart_count !== undefined) {
+                                    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count } }));
+                                }
+                            } else {
+                                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message || 'Could not remove item.' } }));
+                            }
+                        })
+                        .catch(err => console.error('Cart remove error:', err))
+                        .finally(() => this.isLoading = false);
+                    }
+                }));
+
+                // 3. Toast Handler Component
                 Alpine.data('toastHandler', () => ({
                     toasts: [],
                     toastIdCounter: 0,
@@ -446,7 +515,7 @@
                     }
                 })); // End of toastHandler
 
-                // 3. Product Details Component (UPDATED WITH VARIANT LOGIC)
+                // 4. Product Details Component (UPDATED WITH VARIANT LOGIC)
                 Alpine.data('productDetails', (productData) => ({
                     product: productData,
                     selectedImage: 0,
@@ -625,8 +694,8 @@
                             this.isLoading = false; 
                         });
                     },
-                })); // End of productDetails               
-
+                })); // End of productDetails                 
+                
             
                 // Update the cart-updated event listener to work with session-based cart
                 window.addEventListener('cart-updated', (event) => {

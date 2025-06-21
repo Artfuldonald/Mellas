@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cart;
 use App\Models\Brand;
 use App\Models\Product;
 use App\Models\Category;
@@ -330,5 +331,32 @@ class ProductController extends Controller
         }
 
         return $ratingDistribution;
+    }
+
+    public function removeSimpleProduct(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|integer|exists:products,id',
+        ]);
+
+        $query = Auth::check()
+            ? Cart::where('user_id', auth()->id())
+            : Cart::where('session_id', session()->getId());
+
+        $cartItem = $query->where('product_id', $validated['product_id'])
+                        ->whereNull('variant_id') // Ensure we only target simple products
+                        ->first();
+
+        if ($cartItem) {
+            $cartItem->delete();
+        }
+
+        // Return the fresh cart state, even if the item wasn't found (harmless)
+        return response()->json([
+            'success'     => true,
+            'message'     => 'Item removed from cart.',
+            'cart_totals' => $this->getCartState()['totals'],
+            'cart_count'  => $this->getCartState()['item_count'],
+        ]);
     }
 }
