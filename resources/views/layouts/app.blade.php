@@ -17,9 +17,9 @@
         @stack('styles')
         <style>
             .custom-scrollbar-mobile::-webkit-scrollbar { width: 5px; }
-            .custom-scrollbar-mobile::-webkit-scrollbar-track { background: #f9fafb; /* gray-50 */ border-radius: 10px; }
-            .custom-scrollbar-mobile::-webkit-scrollbar-thumb { background: #d1d5db; /* gray-300 */ border-radius: 10px; }
-            .custom-scrollbar-mobile::-webkit-scrollbar-thumb:hover { background: #9ca3af; /* gray-500 */ }
+            .custom-scrollbar-mobile::-webkit-scrollbar-track { background: #f9fafb; border-radius: 10px; }
+            .custom-scrollbar-mobile::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+            .custom-scrollbar-mobile::-webkit-scrollbar-thumb:hover { background: #9ca3af;}
             [x-cloak] { display: none !important; }
             input[type=number]::-webkit-inner-spin-button,
             input[type=number]::-webkit-outer-spin-button {
@@ -175,21 +175,22 @@
 
 
             {{-- ***** MAIN MOBILE NAVIGATION OFF-CANVAS MENU (for Account, Help, etc.) ***** --}}
-            {{-- This remains largely the same as before, triggered by #mainMobileNavToggleBtn --}}
             <div id="mainMobileOffcanvasMenu"
-                 class="fixed inset-0 z-50 flex justify-end transform translate-x-full transition-transform duration-300 ease-in-out"
+                 class="fixed inset-0 z-50 flex justify-end"
                  x-data="{ open: false }"
                  @open-main-mobile-nav.window="open = true; document.body.style.overflow = 'hidden';"
                  @close-main-mobile-nav.window="open = false; document.body.style.overflow = '';"
                  @keydown.escape.window="if(open){ open = false; document.body.style.overflow = ''; }"
-                 x-show="open" x-cloak style="display: none;"
+                 x-show="open" 
+                 x-cloak 
+                 style="display: none;"
                  role="dialog" aria-modal="true" aria-labelledby="main-mobile-nav-title">
                 <div class="fixed inset-0 bg-black/50" @click="open = false; document.body.style.overflow = '';" aria-hidden="true"></div>
                 <div class="relative w-4/5 max-w-xs bg-white h-full shadow-xl flex flex-col overflow-y-auto custom-scrollbar-mobile">
                     <div class="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
                         <h2 id="main-mobile-nav-title" class="text-lg font-semibold text-pink-600">Menu</h2>
                         <button @click="open = false; document.body.style.overflow = '';" class="p-1 text-gray-500 hover:text-pink-600">
-                            <x-heroicon-o-x-mark class="w-6 w-6"/>
+                            <x-heroicon-o-x-mark class="w-6 h-6"/>
                         </button>
                     </div>
                     <nav class="flex-grow p-4 space-y-2">
@@ -197,8 +198,14 @@
                             <a href="{{ route('login') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign In</a>
                             <a href="{{ route('register') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Create Account</a>
                         @else
+                            <div class="px-3 py-2 text-sm text-gray-500 border-b border-gray-200 mb-2">
+                                Hello, {{ Str::words(Auth::user()->name, 1, '') }}
+                            </div>
                             <a href="{{ Auth::user()->is_admin ? route('admin.dashboard') : route('profile.edit') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">My Account</a>
-                            <form method="POST" action="{{ route('logout') }}" onsubmit="return confirm('Are you sure?');"> @csrf <button type="submit" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign out</button></form>
+                            <form method="POST" action="{{ route('logout') }}" onsubmit="return confirm('Are you sure?');"> 
+                                @csrf 
+                                <button type="submit" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign Out</button>
+                            </form>
                         @endguest
                         <div class="pt-4 border-t mt-2">
                             <a href="#" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Help Center</a>
@@ -395,53 +402,68 @@
 
 
                 // *** 2. UPDATE/CREATE THE CART TOGGLE BUTTON COMPONENT ***
-                Alpine.data('productCardActions', (config) => ({
+                 Alpine.data('productCardActions', (config) => ({
                     productId: config.productId,
                     quantity: config.initialQuantity || 0,
                     maxStock: config.maxStock,
                     isLoading: false,
+                    debounceTimer: null,
 
-                    updateQuantity(newQuantity) {
+                    updateCart(newQuantity) {
                         if (this.isLoading) return;
+
+                        if (newQuantity < 0) return;
                         
-                        // If new quantity is 0, we remove the item
-                        if (newQuantity <= 0) {
+                        if (newQuantity > this.maxStock) {
+                            window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'Maximum stock reached.' }}));
+                            return;
+                        }
+
+                        // If the new quantity is 0, we remove it instead of updating.
+                        if (newQuantity === 0) {
                             this.removeFromCart();
                             return;
                         }
 
-                        // Don't allow adding more than stock
-                        if (newQuantity > this.maxStock) {
-                            window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'Not enough items in stock.' } }));
-                            return;
-                        }
-                        
+                        this.quantity = newQuantity;
+                        clearTimeout(this.debounceTimer);
                         this.isLoading = true;
+
+                        this.debounceTimer = setTimeout(() => {
+                            this.sendUpdateRequest(this.quantity);
+                        }, 350);
+                    },
+
+                    sendUpdateRequest(qty) {
+                        const payload = { product_id: this.productId, quantity: qty };
                         
-                        const payload = {
-                            product_id: this.productId,
-                            quantity: newQuantity,
-                            variant_data: null,
-                        };
-                        
-                        // We use the 'cart.add' route which handles both adding and updating quantity
-                        fetch('{{ route("cart.add") }}', {
+                        // This now calls the correct SET quantity route
+                        fetch('{{ route("cart.set-quantity") }}', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' },
+                            headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json'},
                             body: JSON.stringify(payload)
                         })
                         .then(res => res.json().then(data => ({ ok: res.ok, data })))
                         .then(({ ok, data }) => {
+                            // *** THIS IS THE FIX ***
+                            // Show the toast message from the server's response
+                            window.dispatchEvent(new CustomEvent('toast-show', { 
+                                detail: { type: ok ? 'success' : 'error', message: data.message || 'Cart updated.' } 
+                            }));
+
                             if (ok) {
-                                this.quantity = newQuantity; // Update the local quantity
                                 if (data.cart_count !== undefined) {
                                     window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count } }));
                                 }
                             } else {
-                                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message || 'Could not update cart.' } }));
+                                // On failure, you could add logic to revert the quantity here if desired
+                                console.error("Cart update failed:", data.message);
                             }
                         })
-                        .catch(err => console.error('Cart update error:', err))
+                        .catch(err => {
+                            console.error('Cart update error:', err);
+                            window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'A network error occurred.' } }));
+                        })
                         .finally(() => this.isLoading = false);
                     },
 
@@ -449,18 +471,17 @@
                         this.isLoading = true;
                         fetch('{{ route("cart.remove-simple") }}', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' },
+                            headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json'},
                             body: JSON.stringify({ product_id: this.productId })
                         })
                         .then(res => res.json().then(data => ({ ok: res.ok, data })))
                         .then(({ ok, data }) => {
                             if (ok) {
-                                this.quantity = 0; // Set quantity to 0 to show the 'Add to Cart' button again
+                                this.quantity = 0; // Visually reset to the 'Add to Cart' state
+                                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'success', message: 'Item removed from cart.' }}));
                                 if (data.cart_count !== undefined) {
                                     window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count } }));
                                 }
-                            } else {
-                                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message || 'Could not remove item.' } }));
                             }
                         })
                         .catch(err => console.error('Cart remove error:', err))
@@ -469,10 +490,11 @@
                 }));
 
                 // 3. Toast Handler Component
+                if (typeof window.toastHandlerInitialized === 'undefined') {
                 Alpine.data('toastHandler', () => ({
                     toasts: [],
                     toastIdCounter: 0,
-                    defaultDuration: 3000, // Increased duration
+                    defaultDuration: 3000,
 
                     init() {
                         // Listen for toast-show events
@@ -489,6 +511,11 @@
                         const duration = detail.duration || this.defaultDuration;
 
                         const newToast = { id, message, title, type, visible: true, hovered: false, duration, timeoutId: null };
+                        
+                        // Prevent duplicate toasts with the exact same message and type from showing at the same time
+                        const isDuplicate = this.toasts.some(toast => toast.message === message && toast.type === type && toast.visible);
+                        if(isDuplicate) return;
+                        
                         this.toasts.push(newToast);
                         this.setTimeout(newToast);
                     },
@@ -513,7 +540,11 @@
                     capitalizeFirst(string) {
                         return string.charAt(0).toUpperCase() + string.slice(1);
                     }
-                })); // End of toastHandler
+                }));
+
+                window.toastHandlerInitialized = true; // Set a global flag
+            }
+             // End of toastHandler
 
                 // 4. Product Details Component (UPDATED WITH VARIANT LOGIC)
                 Alpine.data('productDetails', (productData) => ({
@@ -697,7 +728,7 @@
                 })); // End of productDetails                 
                 
             
-                // Update the cart-updated event listener to work with session-based cart
+               // Update the cart-updated event listener to work with session-based cart
                 window.addEventListener('cart-updated', (event) => {
                     // Update cart count in header if needed
                     const cartCountElement = document.querySelector('[data-cart-count]');

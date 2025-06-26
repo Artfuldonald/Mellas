@@ -53,12 +53,17 @@ Route::middleware(['auth'])->prefix('wishlist')->name('wishlist.')->group(functi
 // Cart routes
 Route::prefix('cart')->name('cart.')->group(function () {
     Route::get('/', [CartController::class, 'index'])->name('index');
-    Route::post('/add', [CartController::class, 'add'])->name('add'); // AJAX endpoint from PDP
-    Route::post('/update', [CartController::class, 'update'])->name('update'); // From cart page    
-    Route::post('/clear', [CartController::class, 'clear'])->name('clear');   // From cart page
+    Route::post('/add', [CartController::class, 'add'])->name('add'); 
+    Route::post('/update', [CartController::class, 'update'])->name('update');   
+    Route::post('/clear', [CartController::class, 'clear'])->name('clear');   
     Route::post('/update-item', [CartController::class, 'updateItem'])->name('update-item');
     Route::post('/remove-item', [CartController::class, 'removeItem'])->name('remove-item');    
-    Route::post('/remove-simple', [CartController::class, 'removeSimpleProduct'])->name('remove-simple');
+    Route::post('/remove-simple', [CartController::class, 'removeSimpleProduct'])->name('remove-simple');   
+    Route::post('/set-quantity', [CartController::class, 'setQuantity'])->name('set-quantity');
+});
+
+Route::prefix('api')->name('api.')->group(function () {
+    Route::get('/cart/count', [CartController::class, 'getCount'])->name('cart.count');
 });
 
 // --- MTN MOMO Route ---

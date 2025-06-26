@@ -91,7 +91,7 @@
                                                 <button @click="updateQuantity(item, item.quantity - 1)" :disabled="item.isUpdating || item.quantity <= 1" class="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">-</button>
                                                 <input type="number" x-model.number.debounce.500ms="item.quantity" @change="updateQuantity(item, item.quantity)" :disabled="item.isUpdating"
                                                        class="w-14 text-center border-l border-r border-gray-300 focus:ring-pink-500 focus:border-pink-500 text-base" min="1" max="10">
-                                                <button @click="updateQuantity(item, item.quantity + 1)" :disabled="item.isUpdating" class="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed">+</button>
+                                                <button @click="updateQuantity(item, item.quantity + 1)" :disabled="item.isUpdating || item.quantity >= item.max_stock" class="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">+</button>
                                             </div>
                                             <p class="font-semibold w-24 text-right text-lg text-gray-800" x-text="formatCurrency(item.price_at_add * item.quantity)"></p>
                                         </div>
@@ -132,9 +132,10 @@
     <script>
         function cartPage(config) {
             return {
-                items: [],
-                totals: config.initialTotals, // This now correctly receives the object built above
+                items: config.initialItems || [],
+                totals: config.initialTotals || { subtotal: 0, tax: 0, shipping: 0, grandTotal: 0 },
                 isLoading: false,
+                debounceTimer: null,
 
                 init() {
                     this.items = config.initialItems.map(item => ({ ...item, isUpdating: false }));
@@ -157,34 +158,52 @@
                 },
 
                 updateQuantity(item, newQuantity) {
-                    if (newQuantity < 1) newQuantity = 1;
-                    if (newQuantity > 10) newQuantity = 10;
-                    if (item.quantity === newQuantity || item.isUpdating) return;
+                if (newQuantity < 1) {
+                    this.removeItem(item.id);
+                    return;
+                }
+                
+                 if (newQuantity > item.max_stock) {
+                    window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'Not enough items in stock.' } }));
+                    // Revert the visual quantity if it was typed manually
+                    item.quantity = item.max_stock;
+                    return;
+                }
 
-                    item.isUpdating = true;
+                this.isLoading = true;
+                item.quantity = newQuantity; // Optimistic update
 
-                    fetch(`{{ route('cart.update-item') }}`, {
+                clearTimeout(this.debounceTimer);
+                this.debounceTimer = setTimeout(() => {
+                    fetch(`{{ route('cart.set-quantity') }}`, { // <-- USE THE NEW ROUTE
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json'},
-                        body: JSON.stringify({ cart_id: item.id, quantity: newQuantity })
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            product_id: item.product_id, // We need product_id for simple products
+                            quantity: newQuantity 
+                            // Add variant_id here if this item has one
+                        })
                     })
-                    .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                    .then(({ ok, data }) => {
-                        if (ok) {
-                            item.quantity = newQuantity;
-                            this.handleResponse(data);
-                        } else {
-                            this.handleResponse(data);
+                    .then(res => res.ok ? res.json() : Promise.reject(res.json()))
+                    .then(data => {
+                        if (data.success) {
+                            this.totals = data.cart_totals;
+                            window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count }}));
                         }
                     })
-                    .catch(err => {
-                        console.error('Update Error:', err);
-                        window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'Could not connect to server.' }}));
+                    .catch(errorPromise => {
+                        errorPromise.then(error => {
+                            window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: error.message || 'Could not update cart.' }}));
+                            // Optional: Revert the quantity by re-fetching the cart state
+                        })
                     })
-                    .finally(() => {
-                        item.isUpdating = false; 
-                    });
-                },
+                    .finally(() => this.isLoading = false);
+                }, 350);
+            },
 
                 removeItem(itemId) {
                     this.isLoading = true;

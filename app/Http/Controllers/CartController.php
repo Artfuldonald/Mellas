@@ -231,4 +231,46 @@ class CartController extends Controller
             'cart_count'  => $this->getCartState()['item_count'],
         ]);
     }
+
+        /**
+     * Sets the quantity for a simple product in the cart.
+     * This will be used by the product card and cart page steppers.
+     */
+    public function setQuantity(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'quantity'   => 'required|integer|min:1', // Stepper ensures it's at least 1
+        ]);
+
+        $product = Product::findOrFail($validated['product_id']);
+
+        // Server-side stock check
+        if ($validated['quantity'] > $product->quantity) {
+            return response()->json(['success' => false, 'message' => 'Not enough items in stock.'], 422);
+        }
+        
+        $userOrSession = Auth::check() 
+            ? ['user_id' => Auth::id()] 
+            : ['session_id' => session()->getId()];
+
+        // This is the key: updateOrCreate will find the item and SET the quantity.
+        // It does not add to the existing quantity.
+        Cart::updateOrCreate(
+            array_merge($userOrSession, [
+                'product_id' => $product->id, 
+                'variant_id' => null
+            ]),
+            [
+                'quantity' => $validated['quantity'],
+                'price_at_add' => $product->price // Good practice to update price in case it changed
+            ]
+        );
+
+        return response()->json([
+            'success'    => true,
+            'message'    => 'Cart updated.',
+            'cart_count' => $this->getCartState()['item_count'],
+        ]);
+    }
 }
