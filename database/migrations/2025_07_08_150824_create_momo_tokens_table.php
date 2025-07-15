@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('product_images', function (Blueprint $table) {
+        Schema::create('momo_tokens', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained()->onDelete('cascade');
-            $table->string('path');
-            $table->string('alt')->nullable();
-            $table->integer('position')->default(0);
+            $table->string('product');
+            $table->text('access_token');
+            $table->string('token_type')->default('Bearer');
+            $table->timestamp('expires_at');
             $table->timestamps();
         });
     }
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('product_images');
+        Schema::dropIfExists('momo_tokens');
     }
 };

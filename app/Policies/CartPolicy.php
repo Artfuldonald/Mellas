@@ -11,31 +11,31 @@ class CartPolicy
     /**
      * Determine whether the user can view any models.
      */
-    public function viewAny(User $user): bool
+    public function viewAny(?User $user): bool
     {
-        return false;
+        return true;
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Cart $cart): bool
+    public function view(?User $user, Cart $cart): bool
     {
-        return false;
+        return $this->belongsToUser($user, $cart); 
     }
 
     /**
      * Determine whether the user can create models.
      */
-    public function create(User $user): bool
+    public function create(?User $user): bool
     {
-        return false;
+        return true;
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Cart $cart): bool
+    public function update(?User $user, Cart $cart): bool
     {
         return $this->belongsToUser($user, $cart);
     }
@@ -55,7 +55,7 @@ class CartPolicy
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Cart $cart): bool
+    public function delete(?User $user, Cart $cart): bool
     {
         return $this->belongsToUser($user, $cart);
     }

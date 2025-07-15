@@ -9,7 +9,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 return Application::configure(basePath: dirname(__DIR__))
 
     ->withProviders([       
-        AuthServiceProvider::class,
+        AuthServiceProvider::class,       
     ])
     
     ->withRouting(
@@ -19,16 +19,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+       
          // --- REGISTER MIDDLEWARE ALIASES HERE ---
          $middleware->alias([
             'auth' => \Illuminate\Auth\Middleware\Authenticate::class,
             'guest' => \Illuminate\Auth\Middleware\RedirectIfAuthenticated::class,
-            'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
-
-            // **** ADD YOUR ADMIN ALIAS ****
-            'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
-            // **** END ADD ADMIN ALIAS ****
+            'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,            
+            'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,            
          ]);
 
          $middleware->redirectGuestsTo(fn () => route('login'));

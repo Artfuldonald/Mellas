@@ -14,215 +14,110 @@
         <!-- Styles & Scripts (Using Vite) -->
         @vite(['resources/css/app.css', 'resources/js/app.js']) 
 
-        @stack('styles')
-        <style>
-            .custom-scrollbar-mobile::-webkit-scrollbar { width: 5px; }
-            .custom-scrollbar-mobile::-webkit-scrollbar-track { background: #f9fafb; border-radius: 10px; }
-            .custom-scrollbar-mobile::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-            .custom-scrollbar-mobile::-webkit-scrollbar-thumb:hover { background: #9ca3af;}
-            [x-cloak] { display: none !important; }
-            input[type=number]::-webkit-inner-spin-button,
-            input[type=number]::-webkit-outer-spin-button {
-                -webkit-appearance: none;
-                margin: 0;
-            }
-            /* For Firefox */
-            input[type=number] {
-                -moz-appearance: textfield;
-            }
-        </style>
-    </head>
-    <body class="font-sans antialiased text-gray-800 bg-gray-50">
+       @stack('styles')
+    <style>
+        /* Styles from original layout */
+        .custom-scrollbar-mobile::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar-mobile::-webkit-scrollbar-track { background: #f9fafb; border-radius: 10px; }
+        .custom-scrollbar-mobile::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .custom-scrollbar-mobile::-webkit-scrollbar-thumb:hover { background: #9ca3af;}
+        [x-cloak] { display: none !important; }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] { -moz-appearance: textfield; }
 
-        {{-- Data attribute for JS to know current route (used by sidebar active states if any) --}}
-        <div class="min-h-screen flex flex-col" data-current-route="{{ Route::currentRouteName() ?? '' }}">
-          
-            <x-header />
-           
-            <main class="flex-grow">               
-                {{ $slot }}
-            </main>
-           
-            <x-footer />
+        /* Styles from new layout */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .flash-sales-gradient { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
+        .category-card { transition: all 0.3s ease; }
+        .category-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .product-card { transition: all 0.3s ease; }
+        .product-card:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .discount-badge { background: linear-gradient(45deg, #f59e0b, #f97316); }
+    </style>
+</head>
+<body class="font-sans antialiased text-gray-800 bg-gray-50">
 
-            {{-- ***** "ALL CATEGORIES" OFF-CANVAS MENU (Amazon Style) ***** --}}
-            <div id="allCategoriesOffcanvasMenu"
-                 class="fixed inset-0 z-50 flex"
-                 x-data="amazonCategorySidebar({
-                    allCategories: {{ Js::from(                       
-                        ($navCategories ?? collect())->map(function ($l1Category) {
-                            return [
-                                'id' => $l1Category->id,
-                                'name' => $l1Category->name,
-                                'slug' => $l1Category->slug,
-                                'isLinkOnly' => $l1Category->children->isEmpty(),
-                                'children' => $l1Category->children->map(function ($l2Category) {
-                                    return [
-                                        'id' => $l2Category->id,
-                                        'name' => $l2Category->name,
-                                        'slug' => $l2Category->slug,
-                                        'isLinkOnly' => $l2Category->children->isEmpty(),
-                                        'children' => $l2Category->children->map(fn($l3Category) => [
-                                            'id' => $l3Category->id,
-                                            'name' => $l3Category->name,
-                                            'slug' => $l3Category->slug,
-                                            'isLinkOnly' => true 
-                                        ])->values()->all() 
-                                    ];
-                                })->values()->all() 
-                            ];
-                        })->values()->all() 
-                    ) }}
-                 })"
-                 x-init="
-                    console.log('Alpine Initialized for All Categories Menu.');
-                    // console.log('Processed allCategories in Alpine:', JSON.parse(JSON.stringify(allCategoriesData))); // Use allCategoriesData
-                 "
-                 @open-all-categories-menu.window="open()"
-                 @keydown.escape.window="if(isOpen) close();"
-                 x-show="isOpen"
-                 x-transition:enter="transition ease-out duration-300"
-                 x-transition:enter-start="opacity-0"
-                 x-transition:enter-end="opacity-100"
-                 x-transition:leave="transition ease-in duration-200"
-                 x-transition:leave-start="opacity-100"
-                 x-transition:leave-end="opacity-0"
-                 x-cloak
-                 style="display: none;"
-                 role="dialog" aria-modal="true" aria-labelledby="all-categories-title"
-            >
-                {{-- Overlay --}}
-                <div class="fixed inset-0 bg-black/50" @click="close()" aria-hidden="true" x-show="isOpen"></div>
+    <div class="min-h-screen flex flex-col" data-current-route="{{ Route::currentRouteName() ?? '' }}">
+      
+        <x-header />
 
-                {{-- Menu Panel --}}
-                <div class="fixed left-0 top-0 h-full w-80 max-w-[85vw] sm:max-w-xs bg-white shadow-lg flex flex-col
-                            transform transition-transform duration-300 ease-in-out"
-                     :class="isOpen ? 'translate-x-0' : '-translate-x-full'"
-                     @click.outside="close()" {{-- Close if click is outside this panel --}}
-                >
-                    {{-- Header of the Off-Canvas Menu --}}
-                    <div class="bg-pink-600 text-white p-4 flex items-center justify-between flex-shrink-0 sticky top-0 z-10">
-                        <div class="flex items-center">
-                            <button x-show="history.length > 0" @click="navigateBack()"
-                                    class="mr-2 rounded-full p-1 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-white">
-                                <x-heroicon-o-arrow-left class="h-5 w-5" />
-                                <span class="sr-only">Back</span>
-                            </button>
-                            <span id="all-categories-title" class="text-lg font-bold truncate" x-text="currentTitle"></span>
-                        </div>
-                        <button @click="close()"
-                                class="rounded-full p-1 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-white">
-                            <x-heroicon-o-x-mark class="h-6 w-6" />
-                            <span class="sr-only">Close sidebar</span>
-                        </button>
-                    </div>
-                    {{-- Parent category title (shown in subcategory views) --}}
-                    <div x-show="parentTitleStack.length > 0 && currentView !== 'main'"
-                         class="px-4 pt-2 pb-1 text-xs text-gray-500 bg-gray-50 border-b"
-                         x-text="parentTitleStack[parentTitleStack.length - 1]">
-                    </div>
+        {{-- ***** MAIN CONTENT AREA ***** --}}
+        <main class="flex-grow">
+            {{ $slot }}
+        </main>
+       
+        {{-- ***** MELLA'S FOOTER ***** --}}
+        <x-footer />
 
-                    {{-- Content - Main Categories or Subcategories --}}
-                    <div class="overflow-y-auto flex-grow custom-scrollbar-mobile p-2">
-                        {{-- Level 1 Categories (Main Menu) --}}
-                        <ul x-show="currentView === 'main'" class="divide-y divide-gray-100">
-                            <li x-show="allCategoriesData.length === 0" class="p-3 text-sm text-gray-500">
-                                No categories available.
-                            </li>
-                            <template x-for="categoryL1 in allCategoriesData" :key="categoryL1.id">
-                                <li class="hover:bg-pink-50">
-                                    <div @click="handleClick(categoryL1, 1)"
-                                         class="flex items-center justify-between p-3 text-sm text-gray-700 cursor-pointer">
-                                        <span x-text="categoryL1.name"></span>
-                                        <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" x-show="!categoryL1.isLinkOnly" />
-                                    </div>
-                                </li>
-                            </template>
-                        </ul>
-
-                        {{-- Level 2 Categories --}}
-                        <ul x-show="currentView === 'level2'" class="divide-y divide-gray-100">
-                            <template x-for="categoryL2 in currentItems" :key="categoryL2.id">
-                                <li class="hover:bg-pink-50">
-                                     <div @click="handleClick(categoryL2, 2)"
-                                         class="flex items-center justify-between p-3 text-sm text-gray-700 cursor-pointer">
-                                        <span x-text="categoryL2.name"></span>
-                                        <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" x-show="!categoryL2.isLinkOnly" />
-                                    </div>
-                                </li>
-                            </template>
-                        </ul>
-
-                         {{-- Level 3 Categories --}}
-                        <ul x-show="currentView === 'level3'" class="divide-y divide-gray-100">
-                            <template x-for="categoryL3 in currentItems" :key="categoryL3.id">
-                                <li class="hover:bg-pink-50">
-                                    {{-- L3 items are always links --}}
-                                    <a :href="'{{ url('/products') }}?category=' + categoryL3.slug"
-                                       class="flex items-center justify-between p-3 text-sm text-gray-700">
-                                        <span x-text="categoryL3.name"></span>
-                                    </a>
-                                </li>
-                            </template>
-                        </ul>
-                        <p x-show="currentView !== 'main' && currentItems.length === 0" class="p-3 text-sm text-gray-500 italic">
-                            No further subcategories.
-                        </p>
-                    </div>
+        {{-- ***** "ALL CATEGORIES" OFF-CANVAS MENU (Retained and Themed) ***** --}}
+        <div id="allCategoriesOffcanvasMenu" class="fixed inset-0 z-50 flex" x-data="amazonCategorySidebar({ allCategories: {{ Js::from(($navCategories ?? collect())->map(fn($c1)=>[ 'id'=>$c1->id, 'name'=>$c1->name, 'slug'=>$c1->slug, 'isLinkOnly'=>$c1->children->isEmpty(), 'children'=>$c1->children->map(fn($c2)=>[ 'id'=>$c2->id, 'name'=>$c2->name, 'slug'=>$c2->slug, 'isLinkOnly'=>$c2->children->isEmpty(), 'children'=>$c2->children->map(fn($c3)=>[ 'id'=>$c3->id, 'name'=>$c3->name, 'slug'=>$c3->slug, 'isLinkOnly'=>true ])->values()->all() ])->values()->all() ])->values()->all()) }} })" @open-all-categories-menu.window="open()" @keydown.escape.window="if(isOpen) close();" x-show="isOpen" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" x-cloak style="display: none;">
+            <div class="fixed inset-0 bg-black/50" @click="close()" aria-hidden="true" x-show="isOpen"></div>
+            <div class="fixed left-0 top-0 h-full w-80 max-w-[85vw] sm:max-w-xs bg-white shadow-lg flex flex-col transform transition-transform duration-300 ease-in-out" :class="isOpen ? 'translate-x-0' : '-translate-x-full'" @click.outside="close()">
+                <div class="bg-pink-600 text-white p-4 flex items-center justify-between flex-shrink-0 sticky top-0 z-10">
+                    <div class="flex items-center"><button x-show="history.length > 0" @click="navigateBack()" class="mr-2 rounded-full p-1 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-white"><x-heroicon-o-arrow-left class="h-5 w-5" /></button><span id="all-categories-title" class="text-lg font-bold truncate" x-text="currentTitle"></span></div>
+                    <button @click="close()" class="rounded-full p-1 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-white"><x-heroicon-o-x-mark class="h-6 w-6" /></button>
+                </div>
+                <div class="overflow-y-auto flex-grow custom-scrollbar-mobile p-2">
+                    <ul x-show="currentView === 'main'" class="divide-y divide-gray-100">
+                        <template x-for="categoryL1 in allCategoriesData" :key="categoryL1.id"><li class="hover:bg-pink-50"><div @click="handleClick(categoryL1, 1)" class="flex items-center justify-between p-3 text-sm text-gray-700 cursor-pointer"><span x-text="categoryL1.name"></span><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" x-show="!categoryL1.isLinkOnly" /></div></li></template>
+                    </ul>
+                    <ul x-show="currentView === 'level2'" class="divide-y divide-gray-100">
+                        <template x-for="categoryL2 in currentItems" :key="categoryL2.id"><li class="hover:bg-pink-50"><div @click="handleClick(categoryL2, 2)" class="flex items-center justify-between p-3 text-sm text-gray-700 cursor-pointer"><span x-text="categoryL2.name"></span><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" x-show="!categoryL2.isLinkOnly" /></div></li></template>
+                    </ul>
+                    <ul x-show="currentView === 'level3'" class="divide-y divide-gray-100">
+                        <template x-for="categoryL3 in currentItems" :key="categoryL3.id"><li class="hover:bg-pink-50"><a :href="'{{ url('/products') }}?category=' + categoryL3.slug" class="flex items-center justify-between p-3 text-sm text-gray-700"><span x-text="categoryL3.name"></span></a></li></template>
+                    </ul>
                 </div>
             </div>
-            {{-- ***** END "ALL CATEGORIES" OFF-CANVAS MENU ***** --}}
+        </div>
 
-
-            {{-- ***** MAIN MOBILE NAVIGATION OFF-CANVAS MENU (for Account, Help, etc.) ***** --}}
-            <div id="mainMobileOffcanvasMenu"
-                 class="fixed inset-0 z-50 flex justify-end"
-                 x-data="{ open: false }"
-                 @open-main-mobile-nav.window="open = true; document.body.style.overflow = 'hidden';"
-                 @close-main-mobile-nav.window="open = false; document.body.style.overflow = '';"
-                 @keydown.escape.window="if(open){ open = false; document.body.style.overflow = ''; }"
-                 x-show="open" 
-                 x-cloak 
-                 style="display: none;"
-                 role="dialog" aria-modal="true" aria-labelledby="main-mobile-nav-title">
-                <div class="fixed inset-0 bg-black/50" @click="open = false; document.body.style.overflow = '';" aria-hidden="true"></div>
-                <div class="relative w-4/5 max-w-xs bg-white h-full shadow-xl flex flex-col overflow-y-auto custom-scrollbar-mobile">
-                    <div class="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
-                        <h2 id="main-mobile-nav-title" class="text-lg font-semibold text-pink-600">Menu</h2>
-                        <button @click="open = false; document.body.style.overflow = '';" class="p-1 text-gray-500 hover:text-pink-600">
-                            <x-heroicon-o-x-mark class="w-6 h-6"/>
-                        </button>
-                    </div>
-                    <nav class="flex-grow p-4 space-y-2">
-                        @guest
-                            <a href="{{ route('login') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign In</a>
-                            <a href="{{ route('register') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Create Account</a>
-                        @else
-                            <div class="px-3 py-2 text-sm text-gray-500 border-b border-gray-200 mb-2">
-                                Hello, {{ Str::words(Auth::user()->name, 1, '') }}
-                            </div>
-                            <a href="{{ Auth::user()->is_admin ? route('admin.dashboard') : route('profile.edit') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">My Account</a>
-                            <form method="POST" action="{{ route('logout') }}" onsubmit="return confirm('Are you sure?');"> 
-                                @csrf 
-                                <button type="submit" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign Out</button>
-                            </form>
-                        @endguest
-                        <div class="pt-4 border-t mt-2">
-                            <a href="#" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Help Center</a>
-                        </div>
-                    </nav>
+        {{-- ***** MAIN MOBILE NAVIGATION OFF-CANVAS MENU (Retained and Themed) ***** --}}
+        <div id="mainMobileOffcanvasMenu" class="fixed inset-0 z-50 flex justify-end" x-data="{ open: false }" @open-main-mobile-nav.window="open = true; document.body.style.overflow = 'hidden';" @close-main-mobile-nav.window="open = false; document.body.style.overflow = '';" @keydown.escape.window="if(open){ open = false; document.body.style.overflow = ''; }" x-show="open" x-cloak style="display: none;">
+            <div class="fixed inset-0 bg-black/50" @click="open = false; document.body.style.overflow = '';" aria-hidden="true"></div>
+            <div class="relative w-4/5 max-w-xs bg-white h-full shadow-xl flex flex-col overflow-y-auto custom-scrollbar-mobile">
+                <div class="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
+                    <h2 class="text-lg font-semibold text-pink-600">Menu</h2>
+                    <button @click="open = false; document.body.style.overflow = '';" class="p-1 text-gray-500 hover:text-pink-600"><x-heroicon-o-x-mark class="w-6 h-6"/></button>
                 </div>
+                <nav class="flex-grow p-4 space-y-2">
+                    @guest
+                        <a href="{{ route('login') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign In</a>
+                        <a href="{{ route('register') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Create Account</a>
+                    @else
+                        <div class="px-3 py-2 text-sm text-gray-500 border-b border-gray-200 mb-2">Hello, {{ Str::words(Auth::user()->name, 1, '') }}</div>
+                        <a href="{{ Auth::user()->is_admin ? route('admin.dashboard') : route('profile.edit') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">My Account</a>
+                        <form method="POST" action="{{ route('logout') }}" onsubmit="return confirm('Are you sure?');">@csrf<button type="submit" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign Out</button></form>
+                    @endguest
+                    <div class="pt-4 border-t mt-2">
+                        <a href="#" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Help Center</a>
+                    </div>
+                </nav>
             </div>
-            {{-- ***** END MAIN MOBILE NAVIGATION OFF-CANVAS MENU ***** --}}
+        </div>
 
-            <x-toast-notifications />
-            
-        </div>{{-- End min-h-screen --}}
+        <x-toast-notifications />
+    </div>
 
         @stack('modals')
         @stack('scripts')
        
         <script>
+             window.addEventListener('pageshow', function (event) {
+                // `event.persisted` is true if the page was restored from the bfcache.
+                if (event.persisted) {
+                    console.log('Page restored from bfcache. Dispatching refresh event.');
+                    // Dispatch a custom event that our Alpine components can listen for.
+                    window.dispatchEvent(new CustomEvent('page-restored-from-cache'));
+                }
+            });
+            
             // Alpine.js component for the Amazon-style category sidebar            
             if (typeof window.amazonCategorySidebar === 'undefined') {
                 window.amazonCategorySidebar = function(config) {
@@ -494,7 +389,7 @@
                 Alpine.data('toastHandler', () => ({
                     toasts: [],
                     toastIdCounter: 0,
-                    defaultDuration: 3000,
+                    defaultDuration: 2000,
 
                     init() {
                         // Listen for toast-show events
@@ -725,8 +620,34 @@
                             this.isLoading = false; 
                         });
                     },
-                })); // End of productDetails                 
+                })); // End of productDetails 
                 
+                //5. product slider
+                Alpine.data('productSlider', () => ({
+                    atStart: true,
+                    atEnd: false,
+                    init() {
+                        // Use nextTick to ensure the DOM is ready for measurement
+                        this.$nextTick(() => {
+                            this.checkScroll();
+                            // Also check on window resize
+                            new ResizeObserver(() => this.checkScroll()).observe(this.$refs.slider);
+                        });
+                    },
+                    checkScroll() {
+                        const slider = this.$refs.slider;
+                        this.atStart = slider.scrollLeft <= 0;
+                        // Add a small buffer (1px) for precision issues
+                        this.atEnd = Math.abs(slider.scrollWidth - slider.clientWidth - slider.scrollLeft) < 1;
+                    },
+                    next() {
+                        // Scroll by 80% of the visible width for a nice peek of the next items
+                        this.$refs.slider.scrollBy({ left: this.$refs.slider.clientWidth * 0.8, behavior: 'smooth' });
+                    },
+                    prev() {
+                        this.$refs.slider.scrollBy({ left: -this.$refs.slider.clientWidth * 0.8, behavior: 'smooth' });
+                    }
+                }));                     
             
                // Update the cart-updated event listener to work with session-based cart
                 window.addEventListener('cart-updated', (event) => {

@@ -11,6 +11,7 @@ class AuthServiceProvider extends ServiceProvider
    
     protected $policies = [
         Cart::class => CartPolicy::class, 
+        \App\Models\Address::class => \App\Policies\AddressPolicy::class,
     ];
 
     /**

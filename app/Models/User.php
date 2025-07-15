@@ -95,4 +95,9 @@ class User extends Authenticatable
     {
         return $this->wishlistItems()->where('product_id', $product->id)->exists();
     }
+    
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(Address::class);
+    }
 }

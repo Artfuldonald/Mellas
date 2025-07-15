@@ -3,10 +3,11 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\BrandController;
-use App\Http\Controllers\ReviewController as ClientReviewController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\WishlistController;
 use App\Http\Controllers\Admin\OrderController;
+use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\TaxRateController;
@@ -19,12 +20,12 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AdminBrandController;
 use App\Http\Controllers\Admin\ShippingZoneController;
 use App\Http\Controllers\Webhook\MtnMomoWebhookController;
+use App\Http\Controllers\ReviewController as ClientReviewController;
 use App\Http\Controllers\ProductController as PublicProductController;
-use App\Http\Controllers\Admin\ReviewController;
+use App\Services\MtnMomo\CollectionClient;
 
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home'); 
-
 
 // Product Overview Page (kept as a component)
 Route::get('/product-overview', function () {
@@ -61,12 +62,39 @@ Route::prefix('cart')->name('cart.')->group(function () {
     Route::post('/remove-simple', [CartController::class, 'removeSimpleProduct'])->name('remove-simple');   
     Route::post('/set-quantity', [CartController::class, 'setQuantity'])->name('set-quantity');
 });
+// Checkout & Order Routes
+Route::middleware(['auth'])->group(function () {
 
-Route::prefix('api')->name('api.')->group(function () {
-    Route::get('/cart/count', [CartController::class, 'getCount'])->name('cart.count');
+    // --- MAIN CHECKOUT FLOW ---  
+    Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');    
+    Route::post('/checkout/process', [CheckoutController::class, 'process'])->name('checkout.process');
+    Route::get('/checkout/payment', [CheckoutController::class, 'showPaymentPage'])->name('checkout.payment.show');
+    
+
+    // --- ADDRESS MANAGEMENT DURING CHECKOUT ---   
+    Route::get('/checkout/addresses', [CheckoutController::class, 'showAddresses'])->name('checkout.addresses.show');    
+    Route::get('/checkout/addresses/create', [CheckoutController::class, 'createAddress'])->name('checkout.addresses.create');    
+    Route::post('/checkout/addresses', [CheckoutController::class, 'storeAddress'])->name('checkout.addresses.store');   
+    Route::post('/checkout/addresses/select', [CheckoutController::class, 'selectAddress'])->name('checkout.addresses.select');
+    Route::get('/checkout/addresses/{address}/edit', [CheckoutController::class, 'edit'])->name('checkout.addresses.edit');
+    Route::put('/checkout/addresses/{address}', [CheckoutController::class, 'update'])->name('checkout.addresses.update');    
+    Route::post('/checkout/payment-method/select', [CheckoutController::class, 'selectPaymentMethod'])->name('checkout.payment.select');
+    
+    Route::get('/checkout/processing/{order}', [CheckoutController::class, 'showProcessingPage'])
+    ->name('checkout.processing')->middleware('auth');
+    Route::get('/checkout/status/{order}', [CheckoutController::class, 'checkPaymentStatus'])
+    ->name('checkout.status')->middleware('auth');
+
+    // --- POST-CHECKOUT & PAYMENT STATUS --- 
+    Route::get('/checkout/success/{order}', [CheckoutController::class, 'success'])->name('checkout.success');    
+    Route::get('/checkout/cancel', [CheckoutController::class, 'cancel'])->name('checkout.cancel');   
+    Route::get('/checkout/status/{order}', [CheckoutController::class, 'checkPaymentStatus'])->name('checkout.payment.status');
+    
+    Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');   
+    Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
 });
 
-// --- MTN MOMO Route ---
+// --- MTN MOMO Webhook Route ---
 Route::post('/webhooks/mtn-momo', [MtnMomoWebhookController::class, 'handle'])
      ->name('webhooks.mtn-momo');
     

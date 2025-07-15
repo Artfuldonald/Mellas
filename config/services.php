@@ -34,17 +34,22 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
+    
     'mtn_momo' => [
+        'base_url' => env('MTN_MOMO_BASE_URL', 'https://sandbox.momodeveloper.mtn.com'),
         'environment' => env('MTN_MOMO_ENVIRONMENT', 'sandbox'),
         'currency' => env('MTN_MOMO_CURRENCY', 'GHS'),
-        'callback_url' => env('MTN_MOMO_CALLBACK_URL'),
-        'base_uri' => env('MTN_MOMO_BASE_URI'), 
 
-        // Credentials
-        'api_user_id' => env('MTN_MOMO_API_USER_ID'),
-        'api_key' => env('MTN_MOMO_API_KEY'),
-        'subscription_key' => env('MTN_MOMO_SUBSCRIPTION_KEY'), 
+        'collection' => [
+            'primary_key' => env('MTN_MOMO_COLLECTION_PRIMARY_KEY'),
+            'user_id'     => env('MTN_MOMO_COLLECTION_USER_ID'),
+            'api_key'     => env('MTN_MOMO_COLLECTION_API_KEY'),
+            'token_uri'   => env('MTN_MOMO_COLLECTION_TOKEN_URI', 'collection/token/'),
+            'transaction_uri' => env('MTN_MOMO_COLLECTION_TRANSACTION_URI', 'collection/v1_0/requesttopay'),
+        ],
+
+        // 'callback_host' is not used in our current logic.
+        'callback_host' => env('MTN_MOMO_CALLBACK_HOST'),
     ],
 
 ];

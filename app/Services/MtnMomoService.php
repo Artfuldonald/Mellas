@@ -1,237 +1,228 @@
 <?php
-// app/Services/MtnMomoService.php
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http; // Laravel's built-in HTTP Client
-use Illuminate\Support\Facades\Cache; // For caching the access token
-use Illuminate\Support\Facades\Log;   // For logging errors/info
-use Illuminate\Support\Str;          // For generating UUIDs
-use Exception;                       // For throwing exceptions
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Http\Client\PendingRequest;
 
 class MtnMomoService
 {
-    protected string $baseUrl;
-    protected string $apiUserId;
-    protected string $apiKey;
-    protected string $subscriptionKey;
-    protected string $callbackUrl;
-    protected string $currency;
-    protected string $environment;
-    protected string $tokenCacheKey = 'mtn_momo_access_token'; // Cache key for the token
+    private $baseUrl;
+    private $environment;
+    private $primaryKey;
+    private $userId;
+    private $apiKey;
+    private $currency;
 
-    /**
-     * Constructor - Load configuration.
-     */
     public function __construct()
     {
-        // Load configuration securely from config/services.php (which reads from .env)
         $config = config('services.mtn_momo');
 
-        $this->baseUrl = rtrim($config['base_uri'] ?? '', '/'); // Remove trailing slash if present
-        $this->apiUserId = $config['api_user_id'] ?? null;
-        $this->apiKey = $config['api_key'] ?? null;
-        $this->subscriptionKey = $config['subscription_key'] ?? null;
-        $this->callbackUrl = $config['callback_url'] ?? null;
-        $this->currency = $config['currency'] ?? 'GHS';
-        $this->environment = $config['environment'] ?? 'sandbox';
+        $required = [
+            'base_url', 'environment', 'currency',
+            'collection.primary_key', 'collection.user_id', 'collection.api_key'
+        ];
 
-        // Validate essential configuration
-        if (!$this->baseUrl || !$this->apiUserId || !$this->apiKey || !$this->subscriptionKey) {
-            Log::error('MTN MoMo Service configuration is incomplete. Please check config/services.php and .env file.');
-            // Throwing an exception might be better in a real app to halt execution
-            // throw new Exception('MTN MoMo Service configuration is incomplete.');
+        foreach ($required as $key) {
+            if (!data_get($config, $key)) {
+                throw new \InvalidArgumentException("MTN MoMo config missing: {$key}");
+            }
         }
+
+        $this->baseUrl = rtrim($config['base_url'], '/');
+        $this->environment = $config['environment'];
+        $this->primaryKey = $config['collection']['primary_key'];
+        $this->userId = $config['collection']['user_id'];
+        $this->apiKey = $config['collection']['api_key'];
+        $this->currency = $config['currency'];
     }
+        
 
     /**
-     * Get a valid OAuth 2.0 Access Token from MTN MoMo API.
-     * Handles caching to avoid requesting a new token on every request.
-     *
-     * @return string|null The access token or null on failure.
+     * Create or retrieve a cached access token.
      */
-    protected function getAccessToken(): ?string
+    private function getAccessToken(): ?string
     {
-        // Try to get the token from cache first
-        $cachedToken = Cache::get($this->tokenCacheKey);
-        if ($cachedToken) {
-            // Log::debug('Using cached MTN MoMo token.'); // Optional debug log
-            return $cachedToken;
-        }
+        // Cache the token to avoid requesting a new one for every API call.
+        return Cache::remember('mtn_momo_collection_token', 3500, function () {
+            Log::info('MTN MoMo: Requesting new access token.');
+            $response = Http::withBasicAuth($this->userId, $this->apiKey)
+                ->withHeaders(['Ocp-Apim-Subscription-Key' => $this->primaryKey])
+                ->post($this->baseUrl . '/collection/token/');
 
-        Log::info('Requesting new MTN MoMo access token.');
-
-        // --- Prepare Basic Auth Credentials ---
-        // Base64 encode "APIUserID:APIKey"
-        $credentials = base64_encode("{$this->apiUserId}:{$this->apiKey}");
-
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Basic ' . $credentials,
-                'Ocp-Apim-Subscription-Key' => $this->subscriptionKey,
-                'Content-Type' => 'application/json', // Often needed for POST
-            ])
-            // Adjust endpoint based on environment/product if needed (e.g., /collection/token/)
-            // Check MTN Docs for the correct token endpoint for the 'Collection' product
-            ->post("{$this->baseUrl}/collection/token/"); // <<< VERIFY THIS TOKEN ENDPOINT in MTN Docs
-
-            if ($response->successful() && $response->json('access_token')) {
-                $token = $response->json('access_token');
-                $expiresIn = $response->json('expires_in'); // Seconds until expiry
-
-                // Cache the token for slightly less than its expiry time (e.g., 5 minutes buffer)
-                $cacheDuration = max(60, $expiresIn - 300); // Cache for at least 60s, or expiry minus 5 mins
-                Cache::put($this->tokenCacheKey, $token, $cacheDuration);
-
-                Log::info('Successfully obtained and cached new MTN MoMo access token.');
-                return $token;
-            } else {
-                Log::error('Failed to get MTN MoMo access token.', [
-                    'status' => $response->status(),
-                    'response' => $response->body(),
-                ]);
-                return null;
+            if ($response->successful()) {
+                return $response->json()['access_token'];
             }
-        } catch (\Exception $e) {
-            Log::error('Exception while getting MTN MoMo access token: ' . $e->getMessage(), [
-                 'exception' => $e
+
+            Log::error('MTN MoMo: Failed to create access token', [
+                'status' => $response->status(), 'response' => $response->body()
             ]);
             return null;
-        }
+        });
     }
 
     /**
-     * Initiate a Request to Pay transaction.
-     *
-     * @param string $amount The amount to charge.
-     * @param string $customerMsisdn The customer's phone number (e.g., '233xxxxxxxx'). Check format required by MTN.
-     * @param string $externalId Your unique reference ID for this transaction (e.g., Order Number or a new UUID).
-     * @param string $payerMessage Message shown to the payer on approval screen.
-     * @param string $payeeNote Message for the payee (you).
-     * @return array{status: bool, message: string, reference_id: string|null, mtn_transaction_id: null} Result array.
+     * Build the authenticated HTTP client.
      */
-    public function requestToPay(string $amount, string $customerMsisdn, string $externalId, string $payerMessage = 'Payment for order', string $payeeNote = 'Order Payment'): array
+    private function client(): ?PendingRequest
     {
         $accessToken = $this->getAccessToken();
         if (!$accessToken) {
-            return ['status' => false, 'message' => 'Failed to authenticate with MTN MoMo.', 'reference_id' => $externalId, 'mtn_transaction_id' => null];
+            return null;
         }
 
-        // Generate a unique reference ID for *this specific API request* (MTN requires this in header)
-        $requestReferenceId = (string) Str::uuid();
+        return Http::withToken($accessToken)
+            ->withHeaders([
+                'X-Target-Environment' => $this->environment,
+                'Ocp-Apim-Subscription-Key' => $this->primaryKey,
+                'Content-Type' => 'application/json',
+            ]);
+    }
+
+    /**
+     * Request a payment from a customer.
+     *
+     * @param string $amount
+     * @param string $phoneNumber The customer's phone number (e.g., 46733123453)
+     * @param string $externalId Your unique order/transaction ID
+     * @param string $payerMessage Message shown to the customer
+     * @param string $payeeNote Note for your records
+     */
+    public function requestToPay(string $amount, string $phoneNumber, string $externalId, string $payerMessage, string $payeeNote): array
+    {
+        $client = $this->client();
+        if (!$client) {
+            return ['success' => false, 'message' => 'Authentication failed.'];
+        }
+
+        $momoReferenceId = (string) Str::uuid();
 
         $payload = [
             'amount' => $amount,
-            'currency' => $this->currency,
-            'externalId' => $externalId, // Your reference for the overall transaction
+            'currency' => $this->currency, // Use currency from config
+            'externalId' => $externalId,
             'payer' => [
-                'partyIdType' => 'MSISDN', // Standard identifier type for phone number
-                'partyId' => $customerMsisdn,
+                'partyIdType' => 'MSISDN',
+                'partyId' => $phoneNumber,
             ],
             'payerMessage' => $payerMessage,
             'payeeNote' => $payeeNote,
         ];
 
-        Log::info("Initiating MTN MoMo Request to Pay for externalId: {$externalId}", $payload);
+        // The webhook URL is configured in the MTN Developer Portal.
+        // You should NOT send the X-Callback-Url header unless you have a specific
+        // reason to override the portal setting for a single request.
 
         try {
-            $response = Http::withToken($accessToken) // Use the obtained Bearer token
-                ->withHeaders([
-                    'X-Reference-Id' => $requestReferenceId, // Unique ID for THIS API call
-                    'X-Target-Environment' => $this->environment, // 'sandbox' or 'production'
-                    'Ocp-Apim-Subscription-Key' => $this->subscriptionKey,
-                    'Content-Type' => 'application/json',
-                    'Cache-Control' => 'no-cache', // Often recommended
-                ])
-                // The callback URL is crucial for getting status updates
-                ->withOptions(['json' => $payload]) // Send data as JSON body
-                // <<< VERIFY THIS /requesttopay ENDPOINT in MTN Docs for Collection product
-                ->post("{$this->baseUrl}/collection/v1_0/requesttopay"); // Use v1_0 or v2_0 as per docs
+            $response = $client
+                ->withHeaders(['X-Reference-Id' => $momoReferenceId])
+                ->post($this->baseUrl . '/collection/v1_0/requesttopay', $payload);
 
-            // MTN MoMo typically returns 202 Accepted for successful initiation
+            // 202 Accepted is the success status for this request
             if ($response->status() === 202) {
-                Log::info("MTN MoMo Request to Pay initiated successfully for externalId: {$externalId}. Request Reference ID: {$requestReferenceId}. Waiting for callback.");
-                // The actual success/failure comes via webhook.
-                // We return success here meaning the *initiation* was accepted by MTN.
-                return ['status' => true, 'message' => 'Payment request initiated successfully. Waiting for customer approval.', 'reference_id' => $externalId, 'mtn_transaction_id' => null];
-            } else {
-                // Handle specific MTN error codes if possible based on their documentation
-                Log::error('MTN MoMo Request to Pay initiation failed.', [
-                    'externalId' => $externalId,
-                    'requestReferenceId' => $requestReferenceId,
-                    'status' => $response->status(),
-                    'response' => $response->body(),
-                ]);
-                 $errorMessage = 'Failed to initiate payment request with MTN MoMo.';
-                 // Try to parse error message from response if available
-                 $responseData = $response->json();
-                 if (isset($responseData['message'])) {
-                     $errorMessage .= ' Reason: ' . $responseData['message'];
-                 } elseif (isset($responseData['code'])) {
-                      $errorMessage .= ' Code: ' . $responseData['code'];
-                 }
-
-                return ['status' => false, 'message' => $errorMessage, 'reference_id' => $externalId, 'mtn_transaction_id' => null];
+                Log::info('MTN MoMo: Payment request sent successfully.', ['externalId' => $externalId]);
+                return [
+                    'success' => true,
+                    'momo_reference_id' => $momoReferenceId,
+                    'message' => 'Payment request sent. Awaiting user confirmation.'
+                ];
             }
-        } catch (\Exception $e) {
-             Log::error('Exception during MTN MoMo Request to Pay initiation: ' . $e->getMessage(), [
-                 'externalId' => $externalId,
-                 'requestReferenceId' => $requestReferenceId,
-                 'exception' => $e
+
+            Log::error('MTN MoMo: Payment request failed.', [
+                'status' => $response->status(), 'response' => $response->body(), 'payload' => $payload
             ]);
-            return ['status' => false, 'message' => 'An unexpected error occurred while initiating payment.', 'reference_id' => $externalId, 'mtn_transaction_id' => null];
+            return [
+                'success' => false,
+                'message' => 'Payment request failed.', 'error' => $response->json() ?? $response->body()
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('MTN MoMo: Exception during payment request.', [
+                'message' => $e->getMessage(), 'payload' => $payload
+            ]);
+            return ['success' => false, 'message' => 'An exception occurred.'];
         }
     }
 
     /**
-     * Check the status of a previously initiated Request to Pay transaction.
-     * (Useful if callback fails or for manual checks)
-     *
-     * @param string $requestReferenceId The UUID used in the 'X-Reference-Id' header of the POST /requesttopay call.
-     * @return array|null Transaction details or null on failure.
+     * Check payment status
      */
-    public function getRequestToPayStatus(string $requestReferenceId): ?array
+    public function getPaymentStatus(string $referenceId): array
     {
-        $accessToken = $this->getAccessToken();
+        $accessToken = $this->createAccessToken();
+        
         if (!$accessToken) {
-            Log::error('Cannot get transaction status: Failed to authenticate with MTN MoMo.');
-            return null;
+            return [
+                'success' => false,
+                'message' => 'Failed to authenticate with MTN MoMo'
+            ];
         }
 
-        Log::info("Checking MTN MoMo transaction status for Request Reference ID: {$requestReferenceId}");
-
         try {
-             $response = Http::withToken($accessToken)
-                ->withHeaders([
-                    'X-Target-Environment' => $this->environment,
-                    'Ocp-Apim-Subscription-Key' => $this->subscriptionKey,
-                    'Cache-Control' => 'no-cache',
-                ])
-                 // <<< VERIFY THIS /requesttopay/{referenceId} ENDPOINT in MTN Docs
-                ->get("{$this->baseUrl}/collection/v1_0/requesttopay/{$requestReferenceId}");
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'X-Target-Environment' => $this->environment,
+                'Ocp-Apim-Subscription-Key' => $this->primaryKey,
+            ])->get($this->baseUrl . '/collection/v1_0/requesttopay/' . $referenceId);
 
             if ($response->successful()) {
                 $data = $response->json();
-                Log::info("MTN MoMo status check successful for Request Reference ID: {$requestReferenceId}", $data);
-                // Return the full response data (includes amount, status, externalId, payer, reason etc.)
-                return $data;
-            } else {
-                 Log::error('MTN MoMo status check failed.', [
-                    'requestReferenceId' => $requestReferenceId,
-                    'status' => $response->status(),
-                    'response' => $response->body(),
-                ]);
-                return null;
+                return [
+                    'success' => true,
+                    'status' => $data['status'], 
+                    'data' => $data
+                ];
             }
 
+            return [
+                'success' => false,
+                'message' => 'Failed to get payment status'
+            ];
+
         } catch (\Exception $e) {
-             Log::error('Exception during MTN MoMo status check: ' . $e->getMessage(), [
-                 'requestReferenceId' => $requestReferenceId,
-                 'exception' => $e
+            Log::error('MTN MoMo: Exception getting payment status', [
+                'reference_id' => $referenceId,
+                'message' => $e->getMessage()
             ]);
-            return null;
+
+            return [
+                'success' => false,
+                'message' => 'Failed to get payment status: ' . $e->getMessage()
+            ];
         }
     }
 
-    // TODO: Add methods for other MTN MoMo API calls if needed (e.g., Transfer, Get Balance, Validate Account Holder)
+    /**
+     * Format phone number for MTN MoMo (remove country code if present)
+     */
+    private function formatPhoneNumber(string $phone): string
+    {
+        // Remove any non-numeric characters
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        
+        
+        if (str_starts_with($phone, '233')) {
+            $phone = substr($phone, 3);
+        }        
+        
+        if (!str_starts_with($phone, '0')) {
+            $phone = '0' . $phone;
+        }
+        
+        return $phone;
+    }
+
+    /**
+     * Validate phone number format
+     */
+    public function isValidPhoneNumber(string $phone): bool
+    {
+        $formatted = $this->formatPhoneNumber($phone);
+        
+        // Ghana mobile numbers: 0XX XXXX XXX (10 digits starting with 0)
+        return preg_match('/^0[2-9][0-9]{8}$/', $formatted);
+    }
 }

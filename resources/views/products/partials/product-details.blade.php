@@ -1,316 +1,266 @@
-{{--views/products/partials/product-details.blade.php--}}
-<div x-data="productDetails({{ json_encode($productData) }})" class="grid lg:grid-cols-2 gap-6 lg:gap-8">
-    <!-- Image Gallery -->
-    <div class="space-y-3">
-        <div class="aspect-square relative overflow-hidden rounded-lg border border-gray-200 max-w-sm mx-auto">
-            <img :src="product.images[selectedImage]" :alt="product.name" class="w-full h-full object-cover">
-            @if($productData['discount'] ?? false)
-                <span class="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
-                    -{{ $productData['discount'] }}%
-                </span>
-            @endif
-        </div>
-
-        <div class="grid grid-cols-5 gap-2 max-w-sm mx-auto">
-            <template x-for="(image, index) in product.images" :key="index">
-                <button
-                    @click="selectedImage = index"
-                    :class="selectedImage === index ? 'border-pink-500 border-2' : 'border-gray-200 border hover:border-pink-300'"
-                    class="aspect-square relative overflow-hidden rounded-md transition-colors"
-                >
-                    <img 
-                        :src="image" 
-                        :alt="`${product.name} view ${index + 1}`"
-                        class="w-full h-full object-cover"
-                    >
-                </button>
-            </template>
+{{-- resources/views/products/partials/product-details.blade.php --}}
+{{-- This partial inherits its `productSelector` data from show.blade.php --}}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-12">
+    
+    <!--  IMAGE GALLERY (Column 1)  -->
+    <div class="lg:col-span-1">
+        <div x-data="{ mainImage: product.main_image || '{{ asset('images/placeholder.png') }}' }">
+            <div class="aspect-square bg-white rounded-lg mb-4 border p-2 sticky top-24">
+                <img :src="mainImage" :alt="product.name" class="w-full h-full object-contain rounded-md">
+            </div>
+            <div x-data="productSlider()" class="relative mt-4" x-show="product.images.length > 1">
+                <button x-show="!atStart" @click="prev()" class="absolute top-1/2 -left-3 z-10 -translate-y-1/2 bg-white/80 p-1.5 rounded-full shadow-md hover:bg-white transition"><x-heroicon-o-chevron-left class="w-5 h-5 text-gray-600" /></button>
+                <div x-ref="slider" @scroll="checkScroll()" class="hide-scrollbar flex overflow-x-auto space-x-3 pb-1 scroll-smooth">
+                    <template x-for="(image, index) in product.images" :key="index">
+                        <div class="flex-shrink-0 w-20 h-20">
+                            <button @click="mainImage = image" :class="{'ring-2 ring-pink-500': mainImage === image}" class="w-full h-full bg-gray-100 rounded-md overflow-hidden transition-all focus:outline-none border p-1">
+                                <img :src="image" class="w-full h-full object-contain">
+                            </button>
+                        </div>
+                    </template>
+                </div>
+                <button x-show="!atEnd" @click="next()" class="absolute top-1/2 -right-3 z-10 -translate-y-1/2 bg-white/80 p-1.5 rounded-full shadow-md hover:bg-white transition"><x-heroicon-o-chevron-right class="w-5 h-5 text-gray-600" /></button>
+            </div>
         </div>
     </div>
 
-    <!-- Product Information -->
-    <div class="space-y-4">
-        <!-- Header with Wishlist -->
-        <div class="flex items-start justify-between">
-            <div class="flex-1">
-                <p class="text-sm text-gray-600 mb-1" x-text="product.brand"></p>
-                <h1 class="text-xl lg:text-2xl font-bold mb-2 text-gray-800" x-text="product.name"></h1>
-            </div>
-            @auth
-                <div x-data="wishlistButton({ productId: {{ $productData['id'] ?? 0 }}, initialIsInWishlist: false })" class="ml-4">
-                    <button @click="toggleWishlist" type="button" :disabled="isLoading" 
-                            class="p-2 text-gray-400 hover:text-pink-500 disabled:opacity-50 transition-colors">
-                        <template x-if="isLoading">
-                            <svg class="animate-spin h-5 w-5 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        </template>
-                        <template x-if="!isLoading">
-                            <svg :class="{ 'text-pink-500 fill-current': isInWishlist }" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 0-6.364 0z"></path>
-                            </svg>
-                        </template>
-                    </button>
+    <!--  PRODUCT INFO & ACTIONS (Column 2)  -->
+    <div class="lg:col-span-1">
+        <div class="flex flex-col h-full space-y-4">
+            {{-- Product Header --}}
+            <div class="pb-3 border-b border-gray-200">
+                <div class="flex items-start justify-between">
+                    <h1 class="text-2xl font-bold text-gray-800 leading-tight" x-text="product.name"></h1>
+                    @auth
+                        <div x-data="wishlistButton({ productId: product.id, initialIsInWishlist: {{ in_array($product['id'], $userWishlistProductIds) ? 'true' : 'false' }}, isAuthenticated: true })" class="ml-4 flex-shrink-0">
+                            <button @click="handleClick()" title="Add to Wishlist" class="p-2 rounded-full text-gray-400 hover:text-pink-500 transition-colors">
+                                <template x-if="isInWishlist"><x-heroicon-s-heart class="w-6 h-6 text-pink-500"/></template>
+                                <template x-if="!isInWishlist"><x-heroicon-o-heart class="w-6 h-6"/></template>
+                            </button>
+                        </div>
+                    @endauth
                 </div>
-            @endauth
-        </div>
+                <p class="text-sm text-gray-500 mt-1">Brand: <a href="#" class="text-pink-600 hover:underline" x-text="product.brand"></a></p>
+            </div>                
 
-        <!-- Rating -->
-        <div class="flex items-center gap-2">
-            <div class="flex items-center">
-                <template x-for="i in 5" :key="i">
-                    <svg :class="i <= Math.floor(product.rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'" 
-                         class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                    </svg>
-                </template>
-                <span class="text-sm font-medium ml-1" x-text="product.rating || '0'"></span>
+            {{-- Rating Section --}}
+            <div class="flex items-center gap-4 pt-2">
+                 <div class="flex items-center">
+                    <template x-for="i in 5"><svg class="w-5 h-5" :class="i <= product.rating ? 'text-yellow-400' : 'text-gray-300'" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg></template>
+                    <span class="ml-2 text-sm text-gray-600 font-medium" x-text="product.rating ? product.rating.toFixed(1) : '0.0'"></span>
+                </div>
+                <a href="#reviews" class="text-sm text-pink-600 hover:underline -mt-2" x-text="`(${product.review_count} verified ratings)`"></a>
             </div>
-            <span class="text-sm text-gray-600">
-                (<span x-text="(product.review_count || 0).toLocaleString()"></span> reviews)
-            </span>
-        </div>
 
-        <!-- Pricing -->
-        <div class="space-y-1">
-            <div class="flex items-center gap-2">
-                <span class="text-2xl font-bold text-gray-900">GH₵<span x-text="currentPrice"></span></span>
-                <template x-if="product.original_price > currentPrice">
-                    <span class="text-lg text-gray-500 line-through">
-                        GH₵<span x-text="product.original_price"></span>
-                    </span>
-                </template>
+            {{-- Pricing Box --}}
+            <div class="bg-pink-50/50 rounded-lg p-4 my-2">
+                <div class="flex items-baseline gap-3"><span class="text-3xl font-bold text-pink-600" x-text="formatCurrency(currentPrice)"></span><template x-if="product.original_price > currentPrice"><span class="text-lg text-gray-500 line-through" x-text="formatCurrency(product.original_price)"></span></template></div>
+                <template x-if="product.discount > 0"><span class="bg-red-100 text-red-800 text-xs font-semibold px-2 py-0.5 rounded-full mt-1 inline-block" x-text="'-' + product.discount + '%'"></span></template>
             </div>
-            <!-- Updated stock display logic -->
-            <p :class="product.in_stock ? 'text-green-600' : 'text-red-600'" class="text-sm font-medium">
-                <template x-if="product.in_stock">
-                    <span x-text="product.has_variants ? 'In Stock' : `In Stock (${product.stock_count} available)`"></span>
-                </template>
-                <template x-if="!product.in_stock">
-                    <span>Out of Stock</span>
-                </template>
-            </p>
-        </div>
 
-        <!-- Variants (Inline Display) -->
-        <div x-show="hasVariants" class="space-y-3">
-            <h3 class="text-sm font-medium text-gray-900 uppercase">Available Options</h3>
+            {{-- Variant Selection --}}
+           <div x-show="product.has_variants" class="space-y-4">
             <template x-for="(values, attribute) in product.variants" :key="attribute">
                 <div>
-                    <label class="text-sm font-medium mb-2 block capitalize text-gray-700">
+                    <label class="text-sm font-medium mb-2 block capitalize text-gray-800">
                         <span x-text="attribute"></span>: 
-                        <span class="font-semibold text-pink-600" x-text="selectedVariants[attribute]"></span>
+                        <span class="font-semibold text-gray-600" x-text="selectedOptions[attribute] || ''"></span>
                     </label>
                     <div class="flex gap-2 flex-wrap">
                         <template x-for="value in values" :key="value">
-                            <button 
-                                @click="selectVariant(attribute, value)" 
-                                :class="selectedVariants[attribute] === value ? 'border-pink-500 bg-pink-500 text-white' : 'border-gray-300 hover:border-pink-500'" 
-                                class="px-3 py-1 border rounded text-sm uppercase focus:outline-none transition-all" 
-                                x-text="value">
+                            <button @click="selectOption(attribute, value)"
+                                    :disabled="!isOptionAvailable(attribute, value)"
+                                    :class="{
+                                        'ring-2 ring-pink-500 bg-white border-pink-500': selectedOptions[attribute] === value,
+                                        'ring-1 ring-gray-300 bg-white hover:ring-pink-400': selectedOptions[attribute] !== value,
+                                        'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400': !isOptionAvailable(attribute, value)
+                                    }"
+                                    class="px-4 py-1.5 rounded-md text-sm font-medium transition-all border">
+                                <span x-text="value"></span>
                             </button>
                         </template>
                     </div>
                 </div>
             </template>
         </div>
-
-        <!-- Quantity -->
-        <div>
-            <label class="block text-sm font-medium text-gray-900 mb-2">Quantity</label>
-            <div class="flex items-center max-w-[120px]">
-                <button type="button"
-                        @click="quantity > 1 ? quantity-- : null"
-                        :disabled="quantity <= 1"
-                        class="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-l p-2 h-10 disabled:opacity-50 flex items-center justify-center">
-                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
-                    </svg>
-                </button>
-                <input type="number"
-                       x-model.number="quantity"
-                       min="1"
-                       :max="maxQuantity"
-                       class="bg-gray-50 border-t border-b border-gray-300 h-10 text-center text-gray-900 text-sm w-full py-2 focus:ring-pink-500 focus:border-pink-500">
-                <button type="button"
-                        @click="quantity < maxQuantity ? quantity++ : null"
-                        :disabled="quantity >= maxQuantity"
-                        class="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-r p-2 h-10 flex items-center justify-center disabled:opacity-50">
-                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- Add to Cart Button -->
-        <button
-            @click="handleAddToCart()"
-            :disabled="(!product.in_stock) || isLoading"
-            class="w-full bg-pink-600 hover:bg-pink-700 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
-        >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.5 6M7 13l-1.5-6m0 0L4 5M7 13h10m0 0v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6z"></path>
-            </svg>
-            <span x-text="isLoading ? 'Adding...' : (hasVariants && !allVariantsSelected ? 'Select Options' : 'Add to Cart - GH₵' + (currentPrice * quantity).toFixed(2))"></span>
-        </button>
-
-        <!-- Shipping Information -->
-        <div class="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
-            <div class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                </svg>
-                <div>
-                    <p class="font-medium text-sm">Free Shipping</p>
-                    <p class="text-xs text-gray-600">Estimated delivery: 2-3 days</p>
-                </div>
-            </div>
-
-            <hr class="border-gray-200">
-
-            <div class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
-                <div>
-                    <p class="font-medium text-sm">Easy Returns</p>
-                    <p class="text-xs text-gray-600">30-day returns</p>
-                </div>
-            </div>
-
-            <hr class="border-gray-200">
-
-            <div class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                </svg>
-                <div>
-                    <p class="font-medium text-sm">Secure Payment</p>
-                    <p class="text-xs text-gray-600">Your payment information is protected</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Product Details Tabs -->
-        <div x-data="{ activeTab: 'description' }" class="w-full">
-            <div class="flex border-b border-gray-200">
-                <button
-                    @click="activeTab = 'description'"
-                    :class="activeTab === 'description' ? 'border-pink-500 text-pink-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                    class="py-2 px-4 border-b-2 font-medium text-sm transition-colors"
-                >
-                    Description
-                </button>
-                <button
-                    @click="activeTab = 'features'"
-                    :class="activeTab === 'features' ? 'border-pink-500 text-pink-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                    class="py-2 px-4 border-b-2 font-medium text-sm transition-colors"
-                >
-                    Features
-                </button>
-                <button
-                    @click="activeTab = 'specifications'"
-                    :class="activeTab === 'specifications' ? 'border-pink-500 text-pink-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-                    class="py-2 px-4 border-b-2 font-medium text-sm transition-colors"
-                >
-                    Specifications
-                </button>
-            </div>
-
+            
+            {{-- Quantity Selector --}}
             <div class="mt-4">
-                <div x-show="activeTab === 'description'" x-cloak>
-                    <p class="text-gray-600 leading-relaxed text-sm" x-text="product.description"></p>
-                </div>
-
-                <div x-show="activeTab === 'features'" x-cloak>
-                    <ul class="space-y-2">
-                        <template x-for="feature in product.features" :key="feature">
-                            <li class="flex items-start gap-2">
-                                <div class="w-1.5 h-1.5 bg-pink-600 rounded-full mt-2 flex-shrink-0"></div>
-                                <span class="text-gray-600 text-sm" x-text="feature"></span>
-                            </li>
-                        </template>
-                    </ul>
-                </div>
-
-                <div x-show="activeTab === 'specifications'" x-cloak>
-                    <div class="space-y-2">
-                        <template x-for="[key, value] in Object.entries(product.specifications)" :key="key">
-                            <div class="flex justify-between py-2 border-b border-gray-200">
-                                <span class="font-medium text-sm" x-text="key"></span>
-                                <span class="text-gray-600 text-sm" x-text="value"></span>
-                            </div>
-                        </template>
+                <label class="text-sm font-medium mb-2 block text-gray-800">Quantity</label>
+                <div class="flex items-center">
+                    <div x-data="{ decrement() { if (quantity > 1) quantity--; }, increment() { if (quantity < currentStock) quantity++; } }" class="flex items-center border border-gray-300 rounded-md">
+                        <button @click="decrement()" class="p-2.5 text-gray-600 hover:bg-gray-100 disabled:opacity-50" :disabled="quantity <= 1"><x-heroicon-o-minus class="w-4 h-4"/></button>
+                        <input type="text" x-model.number="quantity" readonly class="w-12 text-center border-y-0 border-x focus:ring-0 font-semibold text-gray-800">
+                        <button @click="increment()" class="p-2.5 text-gray-600 hover:bg-gray-100 disabled:opacity-50" :disabled="quantity >= currentStock"><x-heroicon-o-plus class="w-4 h-4"/></button>
+                    </div>
+                    <div class="ml-4 text-sm h-5">
+                        <p x-show="isSelectionValid() && currentStock > 0" class="text-gray-500" x-text="`${currentStock} pieces available`"></p>
+                        <p x-show="errorMessage" class="text-red-600 font-semibold" x-text="errorMessage"></p>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Variation Selection Modal -->
-    <div x-show="isModalOpen" class="fixed z-50 inset-0 overflow-y-auto" aria-labelledby="variationModalLabel" role="dialog" aria-modal="true" x-cloak>
-        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <!-- Background overlay -->
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="closeModal"></div>
+            <div class="flex-grow"></div>
 
-            <!-- This element is to trick the browser into centering the modal contents -->
-            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-            <!-- Modal panel -->
-            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                    <div class="sm:flex sm:items-start">
-                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="variationModalLabel">
-                                Confirm Your Selection
-                            </h3>
-                            <div class="mt-4">
-                                <div class="bg-gray-50 rounded-lg p-4 mb-4">
-                                    <h4 class="font-medium text-gray-900 mb-2">Selected Options:</h4>
-                                    <div class="space-y-1">
-                                        <template x-for="(value, key) in selectedVariants" :key="key">
-                                            <div class="flex justify-between text-sm">
-                                                <span class="capitalize text-gray-600" x-text="key + ':'"></span>
-                                                <span class="font-medium text-gray-900" x-text="value"></span>
-                                            </div>
-                                        </template>
-                                        <div class="flex justify-between text-sm pt-2 border-t">
-                                            <span class="text-gray-600">Quantity:</span>
-                                            <span class="font-medium text-gray-900" x-text="quantity"></span>
-                                        </div>
-                                        <div class="flex justify-between text-sm pt-1">
-                                            <span class="text-gray-600">Available:</span>
-                                            <span class="font-medium text-green-600" x-text="currentStock + ' in stock'"></span>
-                                        </div>
-                                        <div class="flex justify-between text-lg font-bold pt-2 border-t">
-                                            <span class="text-gray-900">Total:</span>
-                                            <span class="text-pink-600">GH₵<span x-text="(currentPrice * quantity).toFixed(2)"></span></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                    <button type="button"
-                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-pink-600 text-base font-medium text-white hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:ml-3 sm:w-auto sm:text-sm"
-                            @click="addToCart(true)"
-                            :disabled="isLoading || currentStock < quantity"
-                            :class="{'opacity-50 cursor-not-allowed': isLoading || currentStock < quantity}"
-                    >
-                        <span x-text="isLoading ? 'Adding...' : (currentStock < quantity ? 'Insufficient Stock' : 'Add to Cart')"></span>
-                    </button>
-                    <button type="button"
-                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                            @click="closeModal"
-                    >
-                        Cancel
-                    </button>
-                </div>
+            {{-- Add to Cart Button --}}
+            <div class="mt-6">
+                <button @click="openConfirmationModal()" 
+                        :disabled="!currentVariant || currentStock < 1"
+                        class="w-full bg-pink-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-pink-700 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-base">
+                    <x-heroicon-o-shopping-cart class="w-5 h-5 mr-2"/>
+                    <!-- Show prompt if needed, otherwise show 'Add to Cart' -->
+                    <span x-text="selectionPrompt || 'Add to Cart'"></span>
+                </button>
             </div>
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+    function productSelector(config) {
+    return {
+        // --- State Properties ---
+        product: config.product,
+        selectedOptions: {},
+        currentVariant: null, // Holds the entire data object for the selected variant
+        quantity: 1,
+        isModalOpen: false,
+        isLoading: false,
+        
+        // --- Computed Properties (like Vue) ---
+        get currentPrice() {
+            return this.currentVariant ? this.currentVariant.price : this.product.price;
+        },
+        get currentStock() {
+            return this.currentVariant ? this.currentVariant.stock : this.product.stock_count;
+        },
+        get selectionPrompt() {
+            if (!this.product.has_variants) return '';
+            // Find the first attribute that hasn't been selected
+            for (const attribute in this.selectedOptions) {
+                if (this.selectedOptions[attribute] === null) {
+                    return `Please select ${attribute}`;
+                }
+            }
+            return ''; // Everything is selected
+        },
+
+        // --- Initialization ---
+        init() {
+            if (this.product.has_variants) {
+                // Initialize selectedOptions with null for each attribute
+                for (const attribute in this.product.variants) {
+                    this.selectedOptions[attribute] = null;
+                }
+            } else {
+                // If no variants, the "currentVariant" is just the base product
+                this.currentVariant = { stock: this.product.stock_count, price: this.product.price };
+            }
+        },
+            // Helper function to format currency
+            formatCurrency(amount) {
+                return new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS' }).format(amount);
+            },
+            
+           selectOption(attribute, value) {
+            // If the user clicks the same option again, deselect it
+            if (this.selectedOptions[attribute] === value) {
+                this.selectedOptions[attribute] = null;
+            } else {
+                this.selectedOptions[attribute] = value;
+            }
+            this.updateCurrentVariant();
+        },
+
+        updateCurrentVariant() {
+            // If any option is not selected, reset the variant info
+            if (Object.values(this.selectedOptions).some(v => v === null)) {
+                this.currentVariant = null;
+                return;
+            }
+            
+            // Create the lookup key (e.g., "Black-XL")
+            let lookupKey = Object.values(this.selectedOptions).sort().join('-');
+            
+            // Find the variant in our new master map
+            const variant = this.product.variant_data_map[lookupKey];
+            
+            if (variant) {
+                this.currentVariant = variant;
+            } else {
+                // This combination is invalid
+                this.currentVariant = { stock: 0 }; // Set stock to 0 for invalid combos
+            }
+        },
+        
+        // This is the new "brain" for disabling buttons
+        isOptionAvailable(attribute, value) {
+            // Temporarily select the option to see what combinations it makes
+            const tempSelection = { ...this.selectedOptions, [attribute]: value };
+
+            // Check if ANY valid variant in the map can be formed with this temporary selection
+            for (const key in this.product.variant_data_map) {
+                const variantAttributes = this.product.variant_data_map[key].attributes;
+                let isMatch = true;
+                // Check if the variant's attributes match our temporary selection
+                for (const attr in tempSelection) {
+                    if (tempSelection[attr] !== null && variantAttributes[attr] !== tempSelection[attr]) {
+                        isMatch = false;
+                        break;
+                    }
+                }
+                if (isMatch) return true; // Found a valid variant, so this option is possible
+            }
+            
+            return false; // No valid variant found for this potential selection
+        },
+
+        openConfirmationModal() {
+            if (!this.currentVariant) return; // Can't add if no valid variant is selected
+            if (this.quantity > this.currentVariant.stock) {
+                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'Not enough items in stock.' }}));
+                return;
+            }
+            this.isModalOpen = true;
+        },
+
+        handleAddToCart() {
+            if (!this.currentVariant) return; // Double-check
+            this.isLoading = true;
+            
+            let formData = new FormData();
+            formData.append('product_id', this.product.id);           
+            // We now send the specific variant_id from our currentVariant object
+            formData.append('variant_id', this.currentVariant.id); 
+            formData.append('quantity', this.quantity);
+
+                fetch('{{ route("cart.add") }}', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                    body: formData
+                })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (ok) {
+                        this.isModalOpen = false;
+                        window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'success', message: 'Added to cart!' }}));
+                        // Dispatch event to update the global cart count in your header
+                        window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count } }));
+                    } else {
+                        // Show the error from the backend (e.g., "Not enough items in stock")
+                        this.errorMessage = data.message;
+                        window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message }}));
+                    }
+                })
+                .catch(() => {
+                    this.errorMessage = 'An unexpected error occurred.';
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
+            }
+        }
+    }
+</script>
+@endpush

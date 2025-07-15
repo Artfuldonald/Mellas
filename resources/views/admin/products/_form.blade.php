@@ -501,27 +501,28 @@
         </div>
 
 
-        {{-- Images Card --}}
+        {{-- Images Card --}}        
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6 space-y-4">
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Images</h3>
-                {{-- Display Existing Images --}}
+
+                {{-- Display Existing Images  --}}
                 @if(isset($product) && $product->images->isNotEmpty())
                 <div class="space-y-3">
                     <x-input-label :value="__('Current Images')" />
                     <div class="grid grid-cols-3 gap-4">
+                        {{-- Loop through the product's 'images' collection --}}
                         @foreach($product->images->sortBy('position') as $image)
                             <div class="relative group">
-                                {{-- Added placeholder logic and aspect-square --}}
-                                <img src="{{ $image->path ? Storage::url($image->path) : asset('path/to/your/placeholder.jpg') }}"
-                                     alt="{{ $image->alt ?? $product->name }}"
-                                     class="block w-full aspect-square object-cover rounded-md border border-gray-200 bg-gray-100"> {{-- Added bg-gray-100 --}}
+                                {{-- Use the image_url accessor from your ProductImage model --}}
+                                <img src="{{ $image->image_url }}"
+                                    alt="{{ $image->alt ?? $product->name }}"
+                                    class="block w-full aspect-square object-cover rounded-md border border-gray-200 bg-gray-100">
+
                                 {{-- Delete Checkbox Overlay --}}
                                 <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity duration-200 flex items-center justify-center">
-                                    {{-- Use unique ID for label's 'for' attribute --}}
                                     <label for="delete_image_{{ $image->id }}"
-                                           class="hidden group-hover:inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 cursor-pointer">
-                                        {{-- Hide the actual checkbox using sr-only --}}
+                                        class="hidden group-hover:inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 cursor-pointer">                                      
                                         <input type="checkbox" name="delete_images[]" id="delete_image_{{ $image->id }}" value="{{ $image->id }}" class="sr-only">
                                         <x-heroicon-o-trash class="w-4 h-4 mr-1"/> Delete
                                     </label>
@@ -530,26 +531,25 @@
                         @endforeach
                     </div>
                     <p class="text-xs text-gray-500">Hover over an image and click delete to mark it for removal on update.</p>
-                     <x-input-error :messages="$errors->get('delete_images.*')" class="mt-2" />
+                    <x-input-error :messages="$errors->get('delete_images.*')" class="mt-2" />
                 </div>
                 @endif
 
                 {{-- Upload New Images --}}
                 <div>
                     <x-input-label for="images" :value="isset($product) && $product->images->isNotEmpty() ? 'Upload Additional Images' : 'Upload Images'" />
-                    <div class="mt-1">
+                    <div class="mt-1">                      
                         <input type="file" name="images[]" id="images" multiple accept="image/*"
-                               class="block w-full text-sm text-gray-500 border border-gray-300 rounded-md cursor-pointer
-                                      file:mr-4 file:py-2 file:px-4 file:rounded-l-md file:border-0
-                                      file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700
-                                      hover:file:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" >
+                            class="block w-full text-sm text-gray-500 border border-gray-300 rounded-md cursor-pointer
+                                    file:mr-4 file:py-2 file:px-4 file:rounded-l-md file:border-0
+                                    file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700
+                                    hover:file:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" >
                         <x-input-error :messages="$errors->get('images.*')" class="mt-2" />
                     </div>
                     <p class="mt-1 text-sm text-gray-500">You can select multiple images (jpg, jpeg, png, gif, webp).</p>
                 </div>
             </div>
         </div>
-
 
          {{-- Videos Card --}}
         <div class="bg-white shadow sm:rounded-lg">

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
-class ProductVariant extends Model
+class ProductVariant extends Model 
 {
+    use HasFactory;
+       
     protected $fillable = [
         'product_id',
         'name',
@@ -30,4 +33,5 @@ class ProductVariant extends Model
     {
         return $this->morphMany(StockAdjustment::class, 'adjustable');
     }
+
 }

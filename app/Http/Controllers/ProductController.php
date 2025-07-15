@@ -46,6 +46,7 @@ class ProductController extends Controller
                     ->withAvg('approvedReviews', 'rating'); 
 
         $activeCategory = null;
+        $breadcrumbs = [];
 
         // === BRAND FILTER LOGIC ===
         if ($request->filled('brands') && is_array($request->input('brands'))) {
@@ -55,13 +56,28 @@ class ProductController extends Controller
             });
         }
 
-        // --- Filtering by Category ---
+        // --- Filtering by Category & BUILDING BREADCRUMBS ---
         if ($request->filled('category')) {
-            $categorySlug = $request->input('category');
-            $activeCategory = Category::where('slug', $categorySlug)->where('is_active', true)->firstOrFail();
+            $categorySlug = $request->input('category');            
+            
+            $activeCategory = Category::where('slug', $categorySlug)
+                ->where('is_active', true)
+                ->with('parent.parent') // Load parent, and grandparent. Add more .parent for deeper levels if needed.
+                ->firstOrFail();
+
             $query->whereHas('categories', function ($q) use ($activeCategory) {
                 $q->where('categories.id', $activeCategory->id);
             });
+
+            // --- THIS IS THE NEW LOGIC TO BUILD THE HIERARCHY ---
+            $current = $activeCategory;
+            // Loop backwards from the current category to its top-level parent
+            while ($current) {
+                // Add the category to the start of the array
+                array_unshift($breadcrumbs, $current);
+                $current = $current->parent; // Move to the ne xt parent up the chain
+            }
+
         }
 
         // === FETCH BRANDS FOR FILTER ===
@@ -145,79 +161,109 @@ class ProductController extends Controller
             'brands', 
             'activeCategory',
             'sortOrder',
-            'userWishlistProductIds'
+            'userWishlistProductIds',
+            'breadcrumbs'
         ));
     }
 
    public function show(Product $product)
     {
         if (!$product->is_active) { abort(404); }
-
-        // Eager load all relationships needed for the entire page
+     
         $product->load([
-            'images', 'brand', 'variants.attributeValues.attribute',
-            'attributes.values', 'approvedReviews.user'
+            'images', 
+            'brand', 
+            'variants.attributeValues.attribute',
+            'attributes.values', 
+            'approvedReviews.user',           
+            'categories' => function ($query) {              
+                $query->with('parent.parent.parent'); 
+            }
         ]);
         $product->loadCount(['variants', 'approvedReviews']);
         $product->loadAvg('approvedReviews as average_rating', 'rating');
-
-        // --- Data for the main interactive component ---
+        
         $productDataForView = $this->transformProductForView($product);
+        
+        $breadcrumbs = [];
+        // Get the product's primary category (the first one it's associated with)
+        $primaryCategory = $product->categories->first();
 
-        // --- Data for other partials ---
+        if ($primaryCategory) {
+            $current = $primaryCategory;
+            // Loop up the chain from child to parent
+            while ($current) {
+                // Add to the start of the array to build the path in the correct order
+                array_unshift($breadcrumbs, $current);
+                $current = $current->parent;
+            }
+        }
+     
         $reviews = $product->approvedReviews()->with('user')->latest()->paginate(5);
         $ratingDistribution = $this->getRatingDistribution($product);
-        $relatedProducts = $this->getRelatedProducts($product); // Use your existing helper
-        $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : [];
-
+        $relatedProducts = $this->getRelatedProducts($product);
+        $userWishlistProductIds = auth()->check() ? auth()->user()->wishlistItems()->pluck('product_id')->toArray() : [];
+       
         return view('products.show', [
             'productData' => $productDataForView,
             'reviews' => $reviews,
             'ratingDistribution' => $ratingDistribution,
             'relatedProducts' => $relatedProducts,
-            'userWishlistProductIds' => $userWishlistProductIds
+            'userWishlistProductIds' => $userWishlistProductIds,
+            'breadcrumbs' => $breadcrumbs, 
         ]);
-    }
-   
-    //array structure design expects
+    }   
+    
     private function transformProductForView(Product $product): array
     {
         $variantsTransformed = [];
-        $variantStock = [];
-        
-        // Check if product has variants
-        $hasVariants = $product->variants()->exists();
-        
-        if($hasVariants) {
-            // Group variants by attribute for display
-            $variantsByAttribute = [];
+          
+        $variantDataMap = [];
+
+        $hasVariants = $product->variants_count > 0;
+
+        if ($hasVariants) {
+            // Eager load the relationships on the variants collection
+            $product->variants->load('attributeValues.attribute');
+
             foreach ($product->variants as $variant) {
                 if ($variant->is_active) {
+                    $options = [];
+                    $attributesForThisVariant = [];
+
                     foreach ($variant->attributeValues as $attributeValue) {
                         $attributeName = strtolower($attributeValue->attribute->name);
-                        $variantsByAttribute[$attributeName][] = [
-                            'value' => $attributeValue->value,
-                            'variant_id' => $variant->id,
-                            'price' => (float)$variant->price,
-                            'stock' => (int)$variant->quantity,
-                            'sku' => $variant->sku
-                        ];
+                        $optionValue = $attributeValue->value;
+                        
+                        // Build the options for display (e.g., all available colors)
+                        if (!isset($variantsTransformed[$attributeName])) $variantsTransformed[$attributeName] = [];
+                        if (!in_array($optionValue, $variantsTransformed[$attributeName])) {
+                            $variantsTransformed[$attributeName][] = $optionValue;
+                        }
+                        
+                        $options[] = $optionValue;
+                        $attributesForThisVariant[$attributeName] = $optionValue;
                     }
+
+                    // Create a unique key for this combination (e.g., "Black-XL")
+                    sort($options);
+                    $combinationKey = implode('-', $options);
+                    
+                    // Add this variant's full details to our new master map
+                    $variantDataMap[$combinationKey] = [
+                        'id'    => $variant->id,
+                        'price' => (float) $variant->price,
+                        'stock' => (int) $variant->quantity,
+                        'sku'   => $variant->sku,
+                        'name'  => $variant->name, // The "Black / XL" name
+                        'attributes' => $attributesForThisVariant,
+                    ];
                 }
             }
             
-            // Transform for frontend
-            foreach ($variantsByAttribute as $attribute => $variants) {
-                $variantsTransformed[$attribute] = array_unique(array_column($variants, 'value'));
-                
-                // Store stock info for each variant option
-                foreach ($variants as $variant) {
-                    $variantStock[$attribute][$variant['value']] = [
-                        'stock' => $variant['stock'],
-                        'price' => $variant['price'],
-                        'variant_id' => $variant['variant_id']
-                    ];
-                }
+            // Make sure the option lists are unique
+            foreach ($variantsTransformed as $key => $values) {
+                $variantsTransformed[$key] = array_values(array_unique($values));
             }
         }
 
@@ -248,9 +294,10 @@ class ProductController extends Controller
             'description' => $product->description,
             'features' => json_decode($product->features, true) ?? [],
             'specifications' => (array)$product->specifications,
-            'variants' => $variantsTransformed,
-            'variant_stock' => $variantStock, // Add this for stock info per variant
+            'variants' => $variantsTransformed,            
             'shipping' => [ 'free' => true, 'estimated_days' => '2-3 days', 'return_policy' => '30-day returns' ],
+            'variant_data_map' => $variantDataMap,
+            
         ];
     }
 

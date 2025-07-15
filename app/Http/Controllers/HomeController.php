@@ -8,18 +8,27 @@ use Illuminate\Http\Request;
 
 class HomeController extends Controller
 {
-   
     public function index()
     {
-          $featuredProducts = Product::where('is_featured', true)
-                                   ->where('is_active', true)
-                                   ->with(['images' => fn($q)=>$q->orderBy('position')->limit(1)])
-                                   ->latest()
-                                   ->take(8) // Or your desired number
-                                   ->get();
+        $topSellingProducts = Product::forCard()->limit(10)->inRandomOrder()->get(); 
+        $allProducts = Product::forCard()->limit(10)->latest()->get();
 
-        // $navCategories is now provided by the View Composer
-        return view('index', compact('featuredProducts'));   
+        $electronicsCategory = Category::where('slug', 'electronics')->first();
+        $electronicsProducts = $electronicsCategory 
+            ? $electronicsCategory->products()->forCard()->limit(10)->get() 
+            : collect();
+
+        $groceriesCategory = Category::where('slug', 'groceries')->first();
+        $groceriesProducts = $groceriesCategory 
+            ? $groceriesCategory->products()->forCard()->limit(10)->get()
+            : collect();
+
+        return view('index', compact(
+            'topSellingProducts',
+            'allProducts',
+            'electronicsProducts',
+            'groceriesProducts'
+        )); 
     }
 
     /**

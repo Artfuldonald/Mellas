@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event; 
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\ServiceProvider;
+use App\Services\MtnMomo\CollectionClient;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 
 class AppServiceProvider extends ServiceProvider
@@ -24,7 +25,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(CollectionClient::class, function ($app) {
+        return new CollectionClient();
+    });
     }
 
     /**
@@ -84,17 +87,13 @@ class AppServiceProvider extends ServiceProvider
                  $view->with('wishlistCountGlobal', 0); // Default to 0 for guests
             }
 
-            // Enhanced Cart Count for Header - More Reliable
-            if (!isset($view->cartDistinctItemsCountGlobal)) {
-                try {
-                    $cart = session('cart', []);
-                    $cartDistinctItemsCountGlobal = is_array($cart) ? count($cart) : 0;
-                    $view->with('cartDistinctItemsCountGlobal', $cartDistinctItemsCountGlobal);
-                } catch (\Exception $e) {
-                    Log::error('View Composer Error fetching cart count: ' . $e->getMessage());
-                    $view->with('cartDistinctItemsCountGlobal', 0);
-                }
-            }
+            // Enhanced Cart Count for Header - More Reliable           
+            $cartCount = Cart::where(
+                Auth::check() ? ['user_id' => Auth::id()] : ['session_id' => session()->getId()]
+            )->count();
+
+            $view->with('cartDistinctItemsCountGlobal', $cartCount);
+  
         });
 
         /**

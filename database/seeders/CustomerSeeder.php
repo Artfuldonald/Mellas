@@ -19,15 +19,14 @@ class CustomerSeeder extends Seeder
             ->create([
                 'is_admin' => false, // Ensure these are customers
             ]);
-
-        // You could also create one specific test customer with known credentials
-        // User::factory()->create([
-        //     'name' => 'Test Customer',
-        //     'email' => 'customer@example.com',
-        //     'password' => bcrypt('password'), // Or Hash::make('password')
-        //     'is_admin' => false,
-        //     'email_verified_at' => now(),
-        // ]);
+     
+         User::factory()->create([
+             'name' => 'Test Customer',
+             'email' => 'customer@example.com',
+             'password' => bcrypt('password'), // Or Hash::make('password')
+             'is_admin' => false,
+             'email_verified_at' => now(),
+        ]);
 
          $this->command->info('Customer seeder finished.');
     }

@@ -1,75 +1,82 @@
 {{-- resources/views/index.blade.php --}}
 <x-app-layout>
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="flex flex-col lg:flex-row lg:space-x-8">
-            {{-- Main Content Area (Hero, Promotions, Category Cards) --}}
-            <main class="w-full lg:w-4/5 xl:w-3/4 min-w-0 space-y-12">
-                <x-hero-section />
+    {{-- This page assumes variables like $topSellingProducts, $allProducts, $electronicsProducts, etc.
+         are passed from your HomeController. --}}
 
-                @if(isset($navCategories) && $navCategories->isNotEmpty())
-                    <section>
-                        <h2 class="text-2xl font-semibold text-gray-800 mb-6 text-center">Shop by Department</h2>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                            @foreach($navCategories->take(12) as $category) {{-- Show some top-level --}}
-                                <a href="{{ route('products.index', ['category' => $category->slug]) }}"
-                                   class="block p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow text-center group">
-                                    @if($category->image)
-                                        <img src="{{ Storage::url($category->image) }}" alt="{{ $category->name }}" class="w-20 h-20 mx-auto mb-3 object-contain rounded-md">
-                                    @else
-                                        <div class="w-20 h-20 mx-auto mb-3 bg-pink-50 rounded-full flex items-center justify-center">
-                                            <x-heroicon-o-tag class="w-10 h-10 text-pink-400"/>
-                                        </div>
-                                    @endif
-                                    <span class="text-sm font-medium text-gray-700 group-hover:text-pink-600">{{ $category->name }}</span>
-                                </a>
-                            @endforeach
-                        </div>
-                        @if($navCategories->count() > 12)
-                            <div class="text-center mt-6">
-                                <button @click="$dispatch('open-all-categories-menu')" class="text-pink-600 hover:underline font-medium">
-                                    View All Departments
-                                </button>
-                            </div>
-                        @endif
-                    </section>
-                @endif
-
-                @isset($sponsoredProducts)
-                <section class="py-8 sm:py-12 bg-pink-50">
-                    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-                        <div class="flex justify-between items-center mb-4 sm:mb-6">
-                            <h2 class="text-xl sm:text-2xl font-semibold text-pink-800">Sponsored Products</h2>
-                        </div>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-                            @php $userWishlistProductIds = Auth::check() ? Auth::user()->wishlistItems()->pluck('product_id')->toArray() : []; @endphp
-                            @foreach($sponsoredProducts as $product)
-                                <x-product-card-small :product="$product" :userWishlistProductIds="$userWishlistProductIds" />
-                            @endforeach
-                        </div>
-                    </div>
-                </section>
-    @endisset
-            </main>
-
-            {{-- Right Sidebar for "Call to Order", "Flash Sales" --}}
-            <aside class="w-full lg:w-1/5 xl:w-1/4 flex-shrink-0 mt-8 lg:mt-0">
-               <div class="space-y-6 sticky top-24">
-                    <div class="bg-white p-4 shadow rounded-lg text-center">
-                        <h3 class="font-semibold text-gray-700 mb-2">CALL TO ORDER</h3>
-                        <p class="text-xl font-bold text-pink-600">030 274 0642</p>
-                    </div>
-                    <div class="bg-white p-4 shadow rounded-lg text-center">
-                        <h3 class="font-semibold text-gray-700 mb-2">FLASH SALES</h3>
-                        <p class="text-gray-500">Amazing deals coming soon!</p>
-                    </div>
-                    {{-- Placeholder for Jumia Tech Upgrade style banner --}}
-                    <div class="bg-blue-500 text-white p-6 rounded-lg text-center">
-                        <h3 class="text-xl font-bold">MELLA'S TECH UPGRADE</h3>
-                        <p class="text-sm">UP TO 40% OFF</p>
+    <!-- Main Content Area -->
+    <div class="space-y-6">
+        <!-- Hero and Category Grid Section -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+            <div class="flex flex-col lg:flex-row gap-8">
+                <!-- Hero Section (e.g., a large banner) -->
+                <div class="lg:w-3/4">
+                    <div class="bg-pink-100 rounded-lg h-48 lg:h-96 flex items-center justify-center">
+                        <span class="text-2xl font-semibold text-pink-700">Your Hero Banner / Slideshow Here</span>
                     </div>
                 </div>
-            </aside>
+                <!-- Side Banners -->
+                <div class="lg:w-1/4 space-y-4">
+                    <div class="bg-pink-50 rounded-lg h-full flex items-center justify-center p-4">
+                        <span class="text-center text-pink-600">Promo 1</span>
+                    </div>
+                     <div class="bg-pink-50 rounded-lg h-full flex items-center justify-center p-4">
+                        <span class="text-center text-pink-600">Promo 2</span>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <!-- Dynamic Category Links -->
+        @if(isset($navCategories) && $navCategories->isNotEmpty())
+        <section class="py-8 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                    @foreach($navCategories as $category)
+                        <a href="{{ route('products.index', ['category' => $category->slug]) }}"
+                           class="block p-2 bg-gray-50 rounded-lg shadow-sm hover:shadow-md hover:-translate-y-1 transition-all text-center group">
+                            @if($category->image)
+                                <img src="{{ Storage::url($category->image) }}" alt="{{ $category->name }}" class="w-16 h-16 mx-auto mb-2 object-contain rounded-md">
+                            @else
+                                <div class="w-16 h-16 mx-auto mb-2 bg-pink-100 rounded-full flex items-center justify-center">
+                                    <x-heroicon-o-tag class="w-8 h-8 text-pink-400"/>
+                                </div>
+                            @endif
+                            <span class="text-xs sm:text-sm font-medium text-gray-700 group-hover:text-pink-600">{{ $category->name }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+        @endif
+        
+        {{--  Top Selling Products Section 
+        <x-product-slider-section 
+            title="Top Selling Products"
+            viewAllUrl="{{ route('products.index', ['sort' => 'top_selling']) }}"
+            :products="$topSellingProducts"
+        /> 
+
+        <!-- All Products Section 
+        <x-product-slider-section 
+            title="Discover All Products"
+            viewAllUrl="{{ route('products.index') }}"
+            :products="$allProducts"
+        /> 
+        
+        <!-- Electronics Section -->
+        <x-product-slider-section 
+            title="Latest in Electronics"
+            viewAllUrl="{{ route('products.index', ['category' => 'electronics']) }}"
+            :products="$electronicsProducts"
+        />
+
+        <!-- Groceries Section -->
+        <x-product-slider-section 
+            title="Groceries & Essentials"
+            viewAllUrl="{{ route('products.index', ['category' => 'groceries']) }}"
+            :products="$groceriesProducts"
+        /> --}}
+
     </div>
     @pushOnce('scripts')
     <script>

@@ -13,28 +13,36 @@
                 </button>
 
                 <!-- Logo -->
-                <a href="{{ route('home') }}" class="flex-shrink-0 min-w-0">
-                    <span class="text-lg sm:text-xl md:text-2xl font-bold text-pink-600 truncate">Mella's Connect</span>
-                </a>
+                <div class="flex-shrink-0">
+                    <a href="{{ route('home') }}">
+                        <div class="bg-pink-500 text-white px-3 py-1 rounded-md font-bold text-lg sm:text-xl">
+                            Mella's Connect
+                        </div>
+                    </a>
+                </div>
             </div>
 
             <!-- Center: Search Bar (Hidden on mobile, shown below header) -->
-            <div class="hidden md:flex flex-1 px-4 lg:px-8 justify-center">
-                <form action="{{ route('products.index') }}" method="GET" class="w-full max-w-lg xl:max-w-xl flex">
-                    <label for="header-main-search" class="sr-only">Search</label>
-                    <div class="relative w-full">
-                        <input type="search" id="header-main-search" name="search_query"
-                               class="block p-2.5 w-full z-20 text-sm text-gray-900 bg-gray-50 rounded-l-lg border-l-gray-50 border-l-2 border border-gray-300 focus:ring-pink-500 focus:border-pink-500 placeholder-gray-400"
-                               placeholder="Search products..."
-                               value="{{ request('search_query', '') }}">
-                        <button type="submit"
-                                class="absolute top-0 right-0 p-2.5 text-sm font-medium h-full text-white bg-pink-600 rounded-r-lg border border-pink-600 hover:bg-pink-700 focus:ring-4 focus:outline-none focus:ring-pink-300">
-                            <x-heroicon-o-magnifying-glass class="w-5 h-5" />
-                            <span class="sr-only">Search</span>
+           <div class="hidden md:flex flex-1 px-4 lg:px-8 justify-center">
+            <form action="{{ route('products.index') }}" method="GET" class="w-full max-w-lg xl:max-w-xl">
+                <label for="header-main-search" class="sr-only">Search</label>
+                
+                <div class="relative w-full">                       
+                      
+                       <input type="search" id="header-main-search" name="search_query" 
+                            placeholder="Search products..."
+                            value="{{ request('search_query', '') }}"
+                            class="block w-full pl-4 pr-12 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent placeholder-gray-400 text-sm">
+                       
+                        <button type="submit" 
+                                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-pink-600 p-1"
+                                aria-label="Submit search">
+                            <x-heroicon-o-magnifying-glass class="w-5 h-5"/>
                         </button>
+
                     </div>
                 </form>
-            </div>
+            </div>         
 
             <!-- Right Side: Icons & Mobile Menu -->
             <div class="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
@@ -76,10 +84,12 @@
                 {{-- Cart (Desktop & Mobile) --}}
                 <a href="{{ route('cart.index') }}"
                    class="flex items-center text-sm font-medium text-gray-700 hover:text-pink-600 p-1"
-                   x-data="cartCounter()"
-                   x-init="init()"
+                    x-data="cartCounter()"
+                    x-init="$nextTick(() => refreshCount())"
+
                    @cart-updated.window="updateCount($event.detail.cart_distinct_items_count)"
                    @page-loaded.window="refreshCount()"
+                   @page-restored-from-cache.window="refreshCount()"
                    >
                     <div class="relative">
                         <x-heroicon-o-shopping-cart class="w-5 h-5 sm:w-6 sm:h-6"/>
@@ -124,37 +134,23 @@
 // Enhanced Cart Counter Component
 function cartCounter() {
     return {
-        count: {{ $cartDistinctItemsCountGlobal ?? 0 }},
-        
-        init() {
-            // Refresh count when component initializes
-            this.refreshCount();
-        },
-        
+        count: 0, // start from 0 — let refreshCount load the real value
+
         updateCount(newCount) {
             if (typeof newCount === 'number') {
                 this.count = newCount;
             }
         },
-        
+
         async refreshCount() {
             try {
                 const response = await fetch('/api/cart/count', {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                    headers: { 'Accept': 'application/json' }
                 });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    this.count = data.count || 0;
-                }
-            } catch (error) {
-                console.log('Could not refresh cart count:', error);
-                // Fallback to session-based count
-                this.count = {{ $cartDistinctItemsCountGlobal ?? 0 }};
+                const data = await response.json();
+                this.count = data.count || 0;
+            } catch (e) {
+                console.error('Cart count fetch failed:', e);
             }
         }
     }

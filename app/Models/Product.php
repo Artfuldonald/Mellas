@@ -7,8 +7,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute as CastsAttribute;
 
-class Product extends Model
+
+class Product extends Model 
 {
     use HasFactory;
 
@@ -42,7 +45,8 @@ class Product extends Model
         'quantity' => 'integer',
         'specifications' => 'array', 
         'dimensions' => 'array',
-    ];
+    ];    
+    
 
     public function categories()
     {
@@ -62,22 +66,7 @@ class Product extends Model
     public function attributes()
     {
         return $this->belongsToMany(Attribute::class);
-    }
-
-    public function images()
-    {
-        return $this->hasMany(ProductImage::class);
-    }
-    
-    public function primaryImage()
-    {
-        return $this->hasOne(ProductImage::class)->orderBy('position', 'asc');
-    }
-
-    public function firstImage()
-    {
-        return $this->hasOne(ProductImage::class)->oldest('id');
-    }
+    }   
    
     public function reviews(): HasMany 
     {
@@ -87,6 +76,11 @@ class Product extends Model
     public function approvedReviews(): HasMany 
     {
         return $this->hasMany(Review::class)->where('is_approved', true);
+    }
+
+    public function images()
+    {
+        return $this->hasMany(\App\Models\ProductImage::class);
     }
 
     public function videos()
@@ -110,5 +104,49 @@ class Product extends Model
     {
         return $this->approvedReviews()->count();
     }
-     
+
+    public function scopeForCard(Builder $query): void
+    {
+        $query->where('is_active', true)
+            ->with(['images' => fn($i) => $i->orderBy('position')->limit(1)])
+            ->withCount('variants'); // <-- ADD THIS LINE
+    }
+
+    protected function stockCount(): CastsAttribute
+    {
+        return CastsAttribute::make(
+            get: function () {
+                if (!isset($this->variants_count)) { $this->loadCount('variants'); }
+                if ($this->variants_count > 0) {
+                    return $this->relationLoaded('variants')
+                        ? $this->variants->where('is_active', true)->sum('quantity')
+                        : $this->variants()->where('is_active', true)->sum('quantity');
+                }
+                return $this->quantity;
+            }
+        );
+    }
+
+    protected function currentPrice(): CastsAttribute
+    {
+        return CastsAttribute::make(get: fn () => $this->price);
+    }
+    
+    protected function originalPrice(): CastsAttribute
+    {
+        return CastsAttribute::make(get: fn () => $this->compare_at_price);
+    }
+
+    protected function discountPercentage(): CastsAttribute
+    {
+        return CastsAttribute::make(
+            get: function () {
+                if ($this->compare_at_price > 0 && $this->compare_at_price > $this->price) {
+                    return round((($this->compare_at_price - $this->price) / $this->compare_at_price) * 100);
+                }
+                return 0;
+            }
+        );
+    }
+    
 }

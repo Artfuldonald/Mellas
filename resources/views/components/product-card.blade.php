@@ -1,3 +1,4 @@
+{{--components product-card --}}
 @props([
     'product',
     'userWishlistProductIds' => []
@@ -36,7 +37,7 @@
             <img src="{{ $imageUrl }}" alt="{{ $name }}" class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105">
         </a>
         @if($discountPercentage > 0)
-            <span class="absolute top-1 left-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">-{{ $discountPercentage }}%</span>
+             <span class="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">-{{ $discountPercentage }}%</span>
         @endif
 
         <div x-data="wishlistButton({ 
@@ -45,7 +46,7 @@
                 isAuthenticated: {{ auth()->check() ? 'true' : 'false' }},
                 loginUrl: '{{ route('login') }}'
              })" 
-             class="absolute top-1.5 right-1.5 z-10">
+             class="absolute top-1.5 left-1.5 z-10">
            <button @click.prevent="handleClick()"
                     type="button"
                     :title="isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'"
@@ -99,17 +100,18 @@
         <div class="min-h-[22px] mb-1.5">
             @if($showLowStockIndicator)
                 <p class="text-[11px] text-gray-600 font-medium mb-0.5">{{ $currentStock }} {{ Str::plural('item', $currentStock) }} left</p>
-                <div class="w-full bg-gray-200 rounded-full h-1 overflow-hidden">
-                    <div class="bg-orange-400 h-1 rounded-full" style="width: {{ (($currentStock / $lowStockThreshold) * 100) }}%"></div>
+                <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">                  
+                    <div class="bg-orange-400 h-1.5 rounded-full" style="width: {{ ($currentStock / $lowStockThreshold) * 100 }}%"></div>
                 </div>
             @endif
         </div>
 
         <div class="mt-auto pt-1 h-9">
             @if($isGenerallyAvailable)
-                @if($variantsCount > 0)
-                    <a href="{{ $productUrl }}" class="block w-full text-center rounded bg-pink-600 px-2 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-pink-700 transition-colors">Select Options</a>
+                @if($product->variants_count > 0)
+                    <a href="{{ route('products.show', $product->slug) }}" class="block w-full text-center rounded bg-pink-600 px-2 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-pink-700 transition-colors">Select Options</a>
                 @else
+                    {{-- This Alpine component now includes the toast dispatch calls --}}
                     <div x-data="{
                                 quantity: {{ \App\Models\Cart::getItemQuantity($product->id) }},
                                 isLoading: false,
@@ -131,36 +133,41 @@
                                         if (this.quantity === 0) {
                                             this.removeFromCart();
                                         } else {
+                                            // The sendUpdateRequest now handles both add and update
                                             this.sendUpdateRequest(this.quantity);
                                         }
                                     }, 350);
                                 },
 
                                 sendUpdateRequest(qty) {
-                                    fetch('{{ route("cart.set-quantity") }}', { // <-- USE THE NEW ROUTE
+                                  
+                                    fetch('{{ route("cart.add") }}', { 
                                         method: 'POST',
                                         headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json'},
-                                        body: JSON.stringify({ product_id: this.productId, quantity: qty })
+                                        body: JSON.stringify({ product_id: this.productId, quantity: qty, is_replacement: true }) 
                                     })
                                     .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                                    .then(({ ok, data }) => {
+                                    .then(({ ok, data }) => {                                        
+                                        window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: ok ? 'success' : 'error', message: data.message || 'Cart updated.' } }));
+                                       
                                         if (ok) {
                                             window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count } }));
-                                        } else {
-                                            window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message || 'Could not update cart.' } }));
                                         }
                                     })
                                     .finally(() => this.isLoading = false);
                                 },
 
                                 removeFromCart() {
-                                    fetch('{{ route("cart.remove-simple") }}', { // This one is still correct
+                                    fetch('{{ route("cart.remove-simple") }}', {
                                         method: 'POST',
                                         headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json'},
                                         body: JSON.stringify({ product_id: this.productId })
                                     })
                                     .then(res => res.json().then(data => ({ ok: res.ok, data })))
                                     .then(({ ok, data }) => {
+                                     
+                                        window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: ok ? 'success' : 'error', message: data.message || 'Item removed.' } }));
+                                        
                                         if (ok) {
                                             window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count } }));
                                         }
@@ -180,7 +187,7 @@
                             <span x-show="!isLoading" class="px-2 text-sm font-medium text-gray-800" x-text="quantity"></span>
                             <svg x-show="isLoading" class="animate-spin h-4 w-4 text-pink-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                             
-                            {{-- THIS IS THE CORRECTED LINE --}}
+                            
                             <button @click="updateCart(quantity + 1)" :disabled="isLoading || quantity >= maxStock" class="px-3 text-lg text-gray-600 hover:text-pink-600 disabled:opacity-50 h-full">+</button>
                         </div>
                     </div>

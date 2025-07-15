@@ -3,117 +3,118 @@
 namespace App\Services;
 
 use App\Models\Cart;
-use App\Models\Product;
-use App\Models\ProductVariant;
+use App\Models\TaxRate;
+use App\Models\Discount;
+use App\Models\ShippingRate;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Collection;
 
 class CartService
 {
-    public function getCartItems()
+    /**
+     * Get the full state of the cart, including items and all dynamic totals.
+     */
+    public function getCartState(): array
     {
-        if (Auth::check()) {
-            return Cart::with(['product.images', 'variant'])
-                      ->where('user_id', Auth::id())
-                      ->get();
-        } else {
-            return Cart::with(['product.images', 'variant'])
-                      ->where('session_id', Session::getId())
-                      ->get();
-        }
-    }
+        $cartItems = $this->getCartItems();
+        $totals = $this->calculateTotals($cartItems);
 
-    public function addToCart($productId, $quantity = 1, $variantId = null)
-    {
-        $product = Product::findOrFail($productId);
-        
-        // Determine price and stock
-        $price = $product->price;
-        $stock = $product->quantity;
-        
-        if ($variantId) {
-            $variant = ProductVariant::findOrFail($variantId);
-            $price = $variant->price;
-            $stock = $variant->quantity;
-        }
+        return [
+            'items' => $cartItems,
+            'totals' => $totals,
+            'item_count' => $cartItems->sum('quantity'),
+        ];
+    }    
 
-        // Check stock
-        if ($quantity > $stock) {
-            throw new \Exception('Insufficient stock available');
-        }
+    public function getCartItems(): Collection
+    {      
+        $query = Cart::with([
+            'product:id,name,slug,quantity,compare_at_price',
+            'product.images',
+            'variant:id,product_id,name,price,quantity,compare_at_price',
+            'variant.attributeValues.attribute'
+        ]);
 
-        // Find existing cart item
-        $cartQuery = Cart::where('product_id', $productId)
-                        ->where('variant_id', $variantId);
-                        
-        if (Auth::check()) {
-            $cartQuery->where('user_id', Auth::id());
-        } else {
-            $cartQuery->where('session_id', Session::getId());
-        }
+        $query->where(Auth::check() ? 'user_id' : 'session_id', Auth::check() ? auth()->id() : session()->getId());
+        $cartItems = $query->latest('id')->get();
 
-        $existingItem = $cartQuery->first();
+        $cartItems->each(function ($item) {
+            $stock = 0;
 
-        if ($existingItem) {
-            $newQuantity = $existingItem->quantity + $quantity;
-            if ($newQuantity > $stock) {
-                throw new \Exception('Cannot add more items. Stock limit reached.');
+            if ($item->variant) {
+                $variantAttributes = $item->variant->attributeValues->map(fn($av) => $av->attribute->name . ': ' . $av->value)->implode(', ');
+                $item->display_name = $item->product->name . ' (' . $variantAttributes . ')';
+                $stock = $item->variant->quantity;
+            } elseif ($item->product) {
+                $item->display_name = $item->product->name;
+                $stock = $item->product->quantity;
             }
-            $existingItem->update(['quantity' => $newQuantity]);
-        } else {
-            Cart::create([
-                'user_id' => Auth::id(),
-                'session_id' => Auth::check() ? null : Session::getId(),
-                'product_id' => $productId,
-                'variant_id' => $variantId,
-                'quantity' => $quantity,
-                'price_at_add' => $price,
-            ]);
-        }
+
+            
+            if ($item->product && $item->product->images->isNotEmpty()) {              
+                $item->image_url = $item->product->images->first()->image_url;
+            } else {
+                $item->image_url = asset('images/placeholder.png');
+            }
+
+            // Assign other necessary properties
+            $item->line_total = $item->price_at_add * $item->quantity;
+            $item->is_in_stock = $stock > 0;
+            $item->max_stock = $stock;
+        });
+
+        return $cartItems;
     }
 
-    public function migrateSessionCartToUser($userId)
+    /**
+     * Calculates all financial totals for the cart, including discounts, tax, and shipping.
+     */
+    public function calculateTotals(Collection $cartItems): array
     {
-        $sessionId = Session::getId();
+        // 1. Calculate Subtotal
+        $subtotal = $cartItems->sum('line_total');
+
+        // 2. Apply Discount (if one is in the session)
+        $discountAmount = 0;
+        $discountCode = session('cart.discount_code');
+        $appliedDiscount = null;
+
+        if ($discountCode) {
+            $discount = Discount::where('code', $discountCode)->valid()->first();
+            if ($discount && $subtotal >= $discount->min_spend) {
+                $appliedDiscount = $discount;
+                if ($discount->type === Discount::TYPE_PERCENTAGE) {
+                    $discountAmount = ($subtotal * $discount->value) / 100;
+                } else { // Fixed amount
+                    $discountAmount = $discount->value;
+                }
+                $discountAmount = min($subtotal, $discountAmount); // Ensure discount doesn't exceed subtotal
+            } else {
+                session()->forget('cart.discount_code'); // Invalid discount, so remove it
+            }
+        }
         
-        // Update session cart items to user
-        Cart::where('session_id', $sessionId)
-            ->whereNull('user_id')
-            ->update([
-                'user_id' => $userId,
-                'session_id' => null
-            ]);
-    }
+        $subtotalAfterDiscount = $subtotal - $discountAmount;
 
-    public function removeFromCart($productId, $variantId = null)
-    {
-        $cartQuery = Cart::where('product_id', $productId)
-                        ->where('variant_id', $variantId);
-                        
-        if (Auth::check()) {
-            $cartQuery->where('user_id', Auth::id());
-        } else {
-            $cartQuery->where('session_id', Session::getId());
-        }
+        // 3. Calculate Tax on the discounted subtotal
+        $activeTaxRatePercentage = TaxRate::where('is_active', true)->sum('rate');
+        $taxAmount = $subtotalAfterDiscount * ($activeTaxRatePercentage / 100);
 
-        return $cartQuery->delete();
-    }
+        // 4. Calculate Shipping
+        $shippingRate = ShippingRate::where('is_active', true)->orderBy('cost', 'asc')->first();
+        $shippingCost = $shippingRate ? $shippingRate->cost : 0.00;
 
-    public function getCartCount()
-    {
-        if (Auth::check()) {
-            return Cart::where('user_id', Auth::id())->count();
-        } else {
-            return Cart::where('session_id', Session::getId())->count();
-        }
-    }
+        // 5. Calculate Grand Total
+        $grandTotal = $subtotalAfterDiscount + $taxAmount + $shippingCost;
 
-    public function clearCart()
-    {
-        if (Auth::check()) {
-            Cart::where('user_id', Auth::id())->delete();
-        } else {
-            Cart::where('session_id', Session::getId())->delete();
-        }
+        return [
+            'subtotal'   => (float) $subtotal,
+            'discount'   => (float) $discountAmount,
+            'subtotal_after_discount' => (float) $subtotalAfterDiscount,
+            'tax'        => (float) $taxAmount,
+            'shipping'   => (float) $shippingCost,
+            'grandTotal' => (float) $grandTotal,
+            'applied_discount' => $appliedDiscount // Pass the full discount object or null
+        ];
     }
 }

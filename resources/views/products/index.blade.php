@@ -1,24 +1,47 @@
 {{-- resources/views/products/index.blade.php --}}
 <x-app-layout :title="$activeCategory ? $activeCategory->name : 'Shop All Products'">
 
-    {{-- Optional: Breadcrumbs (can be simpler or integrated into the top bar) --}}
+   {{-- Optional: Breadcrumbs --}}
     <div class="bg-gray-100 py-3 border-b border-gray-200">
         <div class="container mx-auto px-4 sm:px-6 lg:px-8">
             <nav class="text-xs text-gray-500" aria-label="Breadcrumb">
                 <ol class="list-none p-0 inline-flex space-x-1.5 items-center">
+                    
+                    {{-- Static Home Link --}}
                     <li class="flex items-center">
                         <a href="{{ route('home') }}" class="hover:text-pink-600">Home</a>
                         <x-heroicon-s-chevron-right class="w-3 h-3 mx-1 text-gray-400"/>
                     </li>
+
+                    {{-- All Products Link (Conditional) --}}
                     <li class="flex items-center">
                         @if($activeCategory)
+                            {{-- If a category is active, "All Products" is a link back --}}
                             <a href="{{ route('products.index') }}" class="hover:text-pink-600">All Products</a>
-                            <x-heroicon-s-chevron-right class="w-3 h-3 mx-1 text-gray-400"/>
-                            <span class="text-gray-700 font-medium" aria-current="page">{{ $activeCategory->name }}</span>
                         @else
+                            {{-- If no category is active, "All Products" is the current page --}}
                             <span class="text-gray-700 font-medium" aria-current="page">All Products</span>
                         @endif
                     </li>
+
+                    {{-- Dynamic Category Path --}}
+                    @if(!empty($breadcrumbs))
+                        @foreach($breadcrumbs as $breadcrumb)
+                            <li class="flex items-center">
+                                <x-heroicon-s-chevron-right class="w-3 h-3 mx-1 text-gray-400"/>
+                                @if(!$loop->last || ($loop->last && $activeCategory->id !== $breadcrumb->id))
+                                    {{-- Link for all parent categories --}}
+                                    <a href="{{ route('products.index', ['category' => $breadcrumb->slug]) }}" class="hover:text-pink-600">
+                                        {{ $breadcrumb->name }}
+                                    </a>
+                                @else
+                                    {{-- The last item is the current page, so it's not a link --}}
+                                    <span class="text-gray-700 font-medium" aria-current="page">{{ $breadcrumb->name }}</span>
+                                @endif
+                            </li>
+                        @endforeach
+                    @endif
+                    
                 </ol>
             </nav>
         </div>

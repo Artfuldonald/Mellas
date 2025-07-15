@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Payment;
 use Illuminate\Support\Str; 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Order extends Model
 {
-    use HasFactory;
+    use HasFactory;    
     
-    // ... Constants remain the same ...
     public const STATUS_PENDING = 'pending';
     public const STATUS_PROCESSING = 'processing';
     public const STATUS_SHIPPED = 'shipped';
@@ -23,7 +24,7 @@ class Order extends Model
     public const PAYMENT_REFUNDED = 'refunded';
 
     protected $fillable = [
-        'user_id', 'order_number', 'transaction_id', 'status', 'payment_status',
+        'user_id', 'order_number','status', 'payment_status',
         'payment_method', 'subtotal', 'shipping_cost', 'tax_amount', 'total_amount',
         'shipping_address', 'billing_address', 'shipping_method', 'tracking_number',
         'notes', 'paid_at', 'shipped_at', 'delivered_at', 'cancelled_at',
@@ -36,7 +37,7 @@ class Order extends Model
         'total_amount' => 'decimal:2',
     ];
     
-    // --- NEW: Automatically generate order number ---
+    
     protected static function boot()
     {
         parent::boot();
@@ -49,12 +50,30 @@ class Order extends Model
     }
 
     // --- Relationships ---
-    public function user() { return $this->belongsTo(User::class); }
-    public function items() { return $this->hasMany(OrderItem::class); }
+    public function user() 
+    {
+        return $this->belongsTo(User::class);
+    }
 
-    // --- NEW: Eloquent Scopes for cleaner queries ---
-    public function scopePaid($query) { return $query->where('payment_status', self::PAYMENT_PAID); }
-    public function scopePending($query) { return $query->where('status', self::STATUS_PENDING); }
+    public function items() 
+    {
+        return $this->hasMany(OrderItem::class); 
+    }
+  
+    public function scopePaid($query) 
+    { 
+        return $query->where('payment_status', self::PAYMENT_PAID);
+    }
+
+    public function scopePending($query) 
+    { 
+        return $query->where('status', self::STATUS_PENDING);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
 
     // --- NEW: Accessor for status badge CSS class ---
     public function getStatusClassAttribute(): string
@@ -65,7 +84,7 @@ class Order extends Model
             self::STATUS_DELIVERED  => 'bg-green-100 text-green-800',
             self::STATUS_CANCELLED  => 'bg-red-100 text-red-800',
             self::STATUS_REFUNDED   => 'bg-purple-100 text-purple-800',
-            default                 => 'bg-yellow-100 text-yellow-800', // Default to pending
+            default                 => 'bg-yellow-100 text-yellow-800', 
         };
     }
 

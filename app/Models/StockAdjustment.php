@@ -11,6 +11,7 @@ class StockAdjustment extends Model
     use HasFactory;
 
     protected $fillable = [
+        'order_id',
         'user_id',
         'adjustable_id',
         'adjustable_type',
@@ -29,5 +30,12 @@ class StockAdjustment extends Model
     public function user(): BelongsTo // Admin who made the change
     {
         return $this->belongsTo(User::class);
+    }
+    /**
+     * Get the order that this stock adjustment belongs to.    
+     */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
     }
 }
