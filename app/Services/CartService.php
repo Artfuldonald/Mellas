@@ -18,16 +18,32 @@ class CartService
     {
         $cartItems = $this->getCartItems();
         $totals = $this->calculateTotals($cartItems);
-
+        
         return [
             'items' => $cartItems,
             'totals' => $totals,
-            'item_count' => $cartItems->sum('quantity'),
+            'item_count' => $cartItems->count(), 
+            'total_quantity' => $cartItems->sum('quantity'), 
         ];
-    }    
+    }
 
+     /**
+     * Get just the count of distinct items in the cart, very efficiently.
+     * 
+     */
+    public function getCartCount(): int
+    {
+        $query = Auth::check()
+            ? Cart::where('user_id', auth()->id())
+            : Cart::where('session_id', session()->getId());
+
+        // We use sum('quantity') to get the total number of all items.
+        // If you want the number of *distinct lines* (e.g., 2 shirts, 1 pair of pants = 2), use  instead.
+        return (int) $query->count(); 
+    }
+        
     public function getCartItems(): Collection
-    {      
+    {
         $query = Cart::with([
             'product:id,name,slug,quantity,compare_at_price',
             'product.images',
@@ -36,11 +52,11 @@ class CartService
         ]);
 
         $query->where(Auth::check() ? 'user_id' : 'session_id', Auth::check() ? auth()->id() : session()->getId());
+
         $cartItems = $query->latest('id')->get();
 
         $cartItems->each(function ($item) {
             $stock = 0;
-
             if ($item->variant) {
                 $variantAttributes = $item->variant->attributeValues->map(fn($av) => $av->attribute->name . ': ' . $av->value)->implode(', ');
                 $item->display_name = $item->product->name . ' (' . $variantAttributes . ')';
@@ -49,9 +65,8 @@ class CartService
                 $item->display_name = $item->product->name;
                 $stock = $item->product->quantity;
             }
-
-            
-            if ($item->product && $item->product->images->isNotEmpty()) {              
+                        
+            if ($item->product && $item->product->images->isNotEmpty()) {
                 $item->image_url = $item->product->images->first()->image_url;
             } else {
                 $item->image_url = asset('images/placeholder.png');
@@ -93,7 +108,7 @@ class CartService
                 session()->forget('cart.discount_code'); // Invalid discount, so remove it
             }
         }
-        
+                
         $subtotalAfterDiscount = $subtotal - $discountAmount;
 
         // 3. Calculate Tax on the discounted subtotal

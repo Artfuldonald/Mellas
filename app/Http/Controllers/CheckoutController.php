@@ -188,7 +188,19 @@ class CheckoutController extends Controller
 
     public function showAddresses()
     {
-        return view('checkout.addresses.show', ['addresses' => Auth::user()->addresses()->latest()->get()]);
+         // If the user came from a profile route, we set a session flag.
+        if (request()->routeIs('profile.*')) {
+            session(['address_context' => 'profile']);
+        } 
+        // If they came from a checkout route, we set a different flag.
+        elseif (request()->routeIs('checkout.*')) {
+            session(['address_context' => 'checkout']);
+        }
+
+        // The view now has access to this session variable.
+        return view('checkout.addresses.show', [
+            'addresses' => Auth::user()->addresses()->latest()->get()
+        ]);
     }
 
     public function selectAddress(Request $request)
@@ -209,11 +221,19 @@ class CheckoutController extends Controller
         if (Auth::user()->addresses()->count() === 1) {
             $address->update(['is_default' => true]);
         }
-        session(['checkout.address_id' => $address->id]);
-        return redirect()->route('checkout.index')->with('success', 'Address added successfully.');
+
+        // --- CONTEXT-AWARE REDIRECT ---
+        // If the previous URL contained 'checkout'...
+        if (Str::contains(url()->previous(), 'checkout')) {
+            session(['checkout.address_id' => $address->id]);
+            return redirect()->route('checkout.index')->with('success', 'Address added and selected.');
+        }
+
+        // Otherwise, redirect back to the profile address book.
+        return redirect()->route('profile.addresses.show')->with('success', 'Address added successfully.');
     }
 
-    public function edit(Address $address)
+    public function editAddress(Address $address)
     {
         // Ensure the user is authorized to edit this address
         $this->authorize('update', $address);
@@ -221,7 +241,7 @@ class CheckoutController extends Controller
         return view('checkout.addresses.edit', compact('address'));
     }
 
-    public function update(UpdateAddressRequest $request, Address $address)
+    public function updateAddress(UpdateAddressRequest $request, Address $address)
     {
         // Authorization is handled by the UpdateAddressRequest
         $address->update($request->validated());
@@ -232,7 +252,12 @@ class CheckoutController extends Controller
             Auth::user()->addresses()->where('id', '!=', $address->id)->update(['is_default' => false]);
         }
 
-        return redirect()->route('checkout.addresses.show')->with('success', 'Address updated successfully.');
+        // --- CONTEXT-AWARE REDIRECT ---
+        if (Str::contains(url()->previous(), 'checkout')) {
+            return redirect()->route('checkout.addresses.show')->with('success', 'Address updated.');
+        }
+
+        return redirect()->route('profile.addresses.show')->with('success', 'Address updated successfully.');
     }
 
     // --- PAYMENT & POST-CHECKOUT METHODS ---       

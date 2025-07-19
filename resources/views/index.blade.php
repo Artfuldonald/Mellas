@@ -1,157 +1,162 @@
-{{-- resources/views/index.blade.php --}}
 <x-app-layout>
-    {{-- This page assumes variables like $topSellingProducts, $allProducts, $electronicsProducts, etc.
-         are passed from your HomeController. --}}
-
-    <!-- Main Content Area -->
-    <div class="space-y-6">
-        <!-- Hero and Category Grid Section -->
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-            <div class="flex flex-col lg:flex-row gap-8">
-                <!-- Hero Section (e.g., a large banner) -->
-                <div class="lg:w-3/4">
-                    <div class="bg-pink-100 rounded-lg h-48 lg:h-96 flex items-center justify-center">
-                        <span class="text-2xl font-semibold text-pink-700">Your Hero Banner / Slideshow Here</span>
+    {{-- Hero Section --}}
+    <section class="relative bg-gradient-to-br from-pink-50 via-white to-pink-100 overflow-hidden">
+        <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23f8fafc" fill-opacity="0.4"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-40"></div>
+        
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                {{-- Hero Content --}}
+                <div class="text-center lg:text-left">
+                    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                        Discover Your
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-pink-600">
+                            Perfect Style
+                        </span>
+                    </h1>
+                    <p class="mt-6 text-lg sm:text-xl text-gray-600 max-w-2xl">
+                        Shop the latest trends with unbeatable prices. From electronics to fashion, find everything you need in one place.
+                    </p>
+                    <div class="mt-8 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                        <a href="{{ route('products.index') }}" 
+                           class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-pink-500 to-pink-600 rounded-xl hover:from-pink-600 hover:to-pink-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl">
+                            <x-heroicon-o-shopping-bag class="w-5 h-5 mr-2" />
+                            Shop Now
+                        </a>
+                        <a href="#categories" 
+                           class="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-pink-600 bg-white border-2 border-pink-200 rounded-xl hover:bg-pink-50 hover:border-pink-300 transition-all duration-200">
+                            <x-heroicon-o-squares-2x2 class="w-5 h-5 mr-2" />
+                            Browse Categories
+                        </a>
                     </div>
                 </div>
-                <!-- Side Banners -->
-                <div class="lg:w-1/4 space-y-4">
-                    <div class="bg-pink-50 rounded-lg h-full flex items-center justify-center p-4">
-                        <span class="text-center text-pink-600">Promo 1</span>
+                
+                {{-- Hero Image/Animation --}}
+                <div class="relative">
+                    <div class="relative z-10 bg-white rounded-3xl shadow-2xl p-8 transform rotate-3 hover:rotate-0 transition-transform duration-500">
+                        <div class="aspect-square bg-gradient-to-br from-pink-100 to-pink-200 rounded-2xl flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="w-24 h-24 bg-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <x-heroicon-o-gift class="w-12 h-12 text-white" />
+                                </div>
+                                <h3 class="text-xl font-bold text-gray-800">Special Offers</h3>
+                                <p class="text-gray-600 mt-2">Up to 50% off</p>
+                            </div>
+                        </div>
                     </div>
-                     <div class="bg-pink-50 rounded-lg h-full flex items-center justify-center p-4">
-                        <span class="text-center text-pink-600">Promo 2</span>
-                    </div>
+                    {{-- Floating Elements --}}
+                    <div class="absolute -top-4 -right-4 w-20 h-20 bg-pink-400 rounded-full opacity-20 animate-pulse"></div>
+                    <div class="absolute -bottom-6 -left-6 w-16 h-16 bg-pink-300 rounded-full opacity-30 animate-bounce"></div>
                 </div>
             </div>
         </div>
+    </section>
 
-        <!-- Dynamic Category Links -->
-        @if(isset($navCategories) && $navCategories->isNotEmpty())
-        <section class="py-8 bg-white">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
-                    @foreach($navCategories as $category)
-                        <a href="{{ route('products.index', ['category' => $category->slug]) }}"
-                           class="block p-2 bg-gray-50 rounded-lg shadow-sm hover:shadow-md hover:-translate-y-1 transition-all text-center group">
+  
+
+    {{-- Categories Section --}}
+    @if(isset($navCategories) && $navCategories->isNotEmpty())
+    <section id="categories" class="py-16 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+                    Shop by 
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-pink-600">Category</span>
+                </h2>
+                <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                    Discover our wide range of products across different categories
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                @foreach($navCategories->take(12) as $category)
+                    <a href="{{ route('products.index', ['category' => $category->slug]) }}"
+                       class="group bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 hover:border-pink-200">
+                        <div class="text-center">
                             @if($category->image)
-                                <img src="{{ Storage::url($category->image) }}" alt="{{ $category->name }}" class="w-16 h-16 mx-auto mb-2 object-contain rounded-md">
+                                <div class="w-16 h-16 mx-auto mb-4 rounded-full overflow-hidden bg-pink-50 flex items-center justify-center">
+                                    <img src="{{ Storage::url($category->image) }}" 
+                                         alt="{{ $category->name }}" 
+                                         class="w-12 h-12 object-contain">
+                                </div>
                             @else
-                                <div class="w-16 h-16 mx-auto mb-2 bg-pink-100 rounded-full flex items-center justify-center">
-                                    <x-heroicon-o-tag class="w-8 h-8 text-pink-400"/>
+                                <div class="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-pink-100 to-pink-200 rounded-full flex items-center justify-center group-hover:from-pink-200 group-hover:to-pink-300 transition-all">
+                                    <x-heroicon-o-tag class="w-8 h-8 text-pink-600"/>
                                 </div>
                             @endif
-                            <span class="text-xs sm:text-sm font-medium text-gray-700 group-hover:text-pink-600">{{ $category->name }}</span>
-                        </a>
-                    @endforeach
-                </div>
+                            <h3 class="font-semibold text-gray-900 group-hover:text-pink-600 transition-colors text-sm">
+                                {{ $category->name }}
+                            </h3>
+                        </div>
+                    </a>
+                @endforeach
             </div>
-        </section>
-        @endif
-        
-        {{--  Top Selling Products Section 
-        <x-product-slider-section 
-            title="Top Selling Products"
-            viewAllUrl="{{ route('products.index', ['sort' => 'top_selling']) }}"
-            :products="$topSellingProducts"
-        /> 
+            
+            @if($navCategories->count() > 12)
+                <div class="text-center mt-8">
+                    <a href="{{ route('products.index') }}" 
+                       class="inline-flex items-center px-6 py-3 text-pink-600 font-semibold hover:text-pink-700 transition-colors">
+                        View All Categories
+                        <x-heroicon-o-arrow-right class="w-4 h-4 ml-2" />
+                    </a>
+                </div>
+            @endif
+        </div>
+    </section>
+    @endif    
 
-        <!-- All Products Section 
-        <x-product-slider-section 
-            title="Discover All Products"
-            viewAllUrl="{{ route('products.index') }}"
-            :products="$allProducts"
-        /> 
-        
-        <!-- Electronics Section -->
-        <x-product-slider-section 
-            title="Latest in Electronics"
-            viewAllUrl="{{ route('products.index', ['category' => 'electronics']) }}"
-            :products="$electronicsProducts"
-        />
+    
 
-        <!-- Groceries Section -->
-        <x-product-slider-section 
-            title="Groceries & Essentials"
-            viewAllUrl="{{ route('products.index', ['category' => 'groceries']) }}"
-            :products="$groceriesProducts"
-        /> --}}
-
-    </div>
     @pushOnce('scripts')
     <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        function handleSmallCardFormSubmit(form, event) {
-            event.preventDefault();
-            const button = form.querySelector('button[type="submit"]');
-            if (button) button.disabled = true; // Simple loading state
-
-            const formData = new FormData(form);
-            const plainFormData = Object.fromEntries(formData.entries());
-
-            fetch(form.action, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': formData.get('_token'), // Make sure CSRF token is in your small card forms
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify(plainFormData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // console.log(data.message);
-                    if (form.classList.contains('add-to-cart-form-small')) {
-                        window.dispatchEvent(new CustomEvent('cart-updated', { detail: { count: data.cart_count } }));
-                        if(button && button.querySelector('svg')) { // If button has an icon
-                            const originalIconHTML = button.innerHTML;
-                            button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-green-500"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>`;
-                            setTimeout(() => { button.innerHTML = originalIconHTML; }, 1500);
-                        }
-                    } else if (form.classList.contains('add-to-wishlist-form-small')) {
-                        // For wishlist, usually a page reload or more complex state update is needed
-                        // to correctly toggle the icon based on server state.
-                        // For now, we can dispatch an event for the header and optionally try a visual toggle.
-                        window.dispatchEvent(new CustomEvent('wishlist-updated', { detail: { productId: plainFormData.product_id, wasAdded: !form.action.includes('remove') } }));
-                        // If you want to attempt a visual toggle (might get out of sync without full re-render):
-                        if(button && button.querySelector('svg')) {
-                            // This logic would need to be smarter or tied to an Alpine component state
-                            // For simplicity, we'll assume the action toggles the state visually
-                            const isCurrentlyInWishlist = form.action.includes('remove');
-                            if(isCurrentlyInWishlist) { // Was remove, so now it's out, show outline
-                                // button.innerHTML = `<x-heroicon-o-heart class="w-3.5 h-3.5" />`; // Blade doesn't work here
-                            } else { // Was add, so now it's in, show solid
-                                // button.innerHTML = `<x-heroicon-s-heart class="w-3.5 h-3.5 text-pink-500" />`;
-                            }
-                            // A page refresh or navigating away and back will show correct state from server.
-                        }
-                    }
-                    // You might want a more global notification system (Toastr, Noty, etc.)
-                    // alert(data.message); // Simple alert for now
-                } else {
-                    alert(data.message || 'An error occurred. Please try again.');
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred processing your request.');
-            })
-            .finally(() => {
-                if (button) button.disabled = false;
             });
+        });
+
+        // Add scroll animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-fade-in-up');
+                }
+            });
+        }, observerOptions);
+
+        // Observe elements for animation
+        document.querySelectorAll('section').forEach(section => {
+            observer.observe(section);
+        });
+    </script>
+
+    <style>
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        // Use event delegation for dynamically added cards if sections are loaded via AJAX
-        // For now, direct binding is fine if cards are present on initial load.
-        document.body.addEventListener('submit', function(event) {
-            if (event.target.matches('.add-to-cart-form-small')) {
-                handleSmallCardFormSubmit(event.target, event);
-            } else if (event.target.matches('.add-to-wishlist-form-small')) {
-                handleSmallCardFormSubmit(event.target, event);
-            }
-        });
-    });
-    </script>
+        .animate-fade-in-up {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+    </style>
     @endPushOnce
 </x-app-layout>

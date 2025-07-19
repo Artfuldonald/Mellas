@@ -1,3 +1,6 @@
+
+@import 'nouislider/dist/nouislider.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -91,3 +94,8 @@ body {
   max-height: 500px;
   /* Example max height */
 }
+
+/* Custom noUiSlider Styles */
+
+
+/*End Price slider on desktop nav */

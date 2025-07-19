@@ -83,21 +83,18 @@
                 
                 {{-- Cart (Desktop & Mobile) --}}
                 <a href="{{ route('cart.index') }}"
-                   class="flex items-center text-sm font-medium text-gray-700 hover:text-pink-600 p-1"
+                    class="flex items-center text-sm font-medium text-gray-700 hover:text-pink-600 p-2 rounded-md"
                     x-data="cartCounter()"
-                    x-init="$nextTick(() => refreshCount())"
-
-                   @cart-updated.window="updateCount($event.detail.cart_distinct_items_count)"
-                   @page-loaded.window="refreshCount()"
-                   @page-restored-from-cache.window="refreshCount()"
-                   >
-                    <div class="relative">
-                        <x-heroicon-o-shopping-cart class="w-5 h-5 sm:w-6 sm:h-6"/>
-                        <template x-if="count > 0">
-                            <span x-text="count" class="absolute -top-2 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-pink-100 bg-pink-600 rounded-full min-w-[18px] h-[18px]"></span>
-                        </template>
-                    </div>
-                    <span class="hidden lg:inline ml-1">Cart</span>
+                    @cart-updated.window="updateCount($event.detail)"
+                    @page-restored-from-cache.window="refreshCount()"
+                    >
+                        <div class="relative">
+                            <x-heroicon-o-shopping-cart class="w-5 h-5 sm:w-6 sm:h-6"/>
+                            <template x-if="count > 0">
+                                <span x-text="count" class="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center px-1 py-0.5 text-xs font-bold leading-none text-pink-100 bg-pink-600 rounded-full min-w-[18px] h-[18px]"></span>
+                            </template>
+                        </div>
+                        <span class="hidden lg:inline ml-1">Cart</span>
                 </a>
 
                 {{-- Mobile Menu Toggle --}}
@@ -131,33 +128,26 @@
 </header>
 
 <script>
-// Enhanced Cart Counter Component
 function cartCounter() {
     return {
-        count: 0, // start from 0 — let refreshCount load the real value
-
-        updateCount(newCount) {
+        count: 0,
+        init() { this.refreshCount(); },
+        updateCount(eventDetail) {
+            // This now correctly looks for `cart_count` first.
+            const newCount = eventDetail.cart_count ?? eventDetail.count ?? eventDetail.cart_distinct_items_count ?? null;
             if (typeof newCount === 'number') {
                 this.count = newCount;
             }
         },
-
         async refreshCount() {
             try {
-                const response = await fetch('/api/cart/count', {
-                    headers: { 'Accept': 'application/json' }
-                });
-                const data = await response.json();
-                this.count = data.count || 0;
-            } catch (e) {
-                console.error('Cart count fetch failed:', e);
-            }
+                const response = await fetch('{{ route("api.cart.count") }}', { /* ... */ });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.count = data.count || 0;
+                }
+            } catch (e) { console.error('Cart count refresh failed:', e); }
         }
     }
 }
-
-// Dispatch page loaded event when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    window.dispatchEvent(new CustomEvent('page-loaded'));
-});
 </script>

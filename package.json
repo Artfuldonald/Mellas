@@ -21,6 +21,7 @@
     },
     "dependencies": {
         "@alpinejs/collapse": "^3.14.9",
-        "chart.js": "^4.4.9"
+        "chart.js": "^4.4.9",
+        "nouislider": "^15.8.1"
     }
 }

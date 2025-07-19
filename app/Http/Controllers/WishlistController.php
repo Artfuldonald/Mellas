@@ -101,7 +101,7 @@ class WishlistController extends Controller
             }
         }
 
-        return response()->json([
+        return response()->json([               
             'success' => false,
             'message' => 'Product not found in your wishlist.'
         ], 404); // Not Found

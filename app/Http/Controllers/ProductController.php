@@ -27,8 +27,8 @@ class ProductController extends Controller
     {
         $baseProductFields = [
         'products.id', 'products.name', 'products.slug', 'products.price',
-        'products.compare_at_price', 'products.quantity', // <-- IMPORTANT
-        'products.brand_id', // <-- Needed for brand relationship
+        'products.compare_at_price', 'products.quantity', 
+        'products.brand_id', 
         'products.created_at',
         // 'products.is_active' // Already filtered by where clause
     ];
@@ -46,9 +46,10 @@ class ProductController extends Controller
                     ->withAvg('approvedReviews', 'rating'); 
 
         $activeCategory = null;
-        $breadcrumbs = [];
+        $breadcrumbs = [];          
+        
 
-        // === BRAND FILTER LOGIC ===
+        //  BRAND FILTER LOGIC 
         if ($request->filled('brands') && is_array($request->input('brands'))) {
             $brandSlugs = $request->input('brands');
             $query->whereHas('brand', function ($q) use ($brandSlugs) {
@@ -56,7 +57,7 @@ class ProductController extends Controller
             });
         }
 
-        // --- Filtering by Category & BUILDING BREADCRUMBS ---
+        //  Filtering by Category & BUILDING BREADCRUMBS 
         if ($request->filled('category')) {
             $categorySlug = $request->input('category');            
             
@@ -69,7 +70,7 @@ class ProductController extends Controller
                 $q->where('categories.id', $activeCategory->id);
             });
 
-            // --- THIS IS THE NEW LOGIC TO BUILD THE HIERARCHY ---
+            //  THIS IS THE NEW LOGIC TO BUILD THE HIERARCHY 
             $current = $activeCategory;
             // Loop backwards from the current category to its top-level parent
             while ($current) {
@@ -80,14 +81,27 @@ class ProductController extends Controller
 
         }
 
-        // === FETCH BRANDS FOR FILTER ===
+        $navCategories = Category::where('is_active', true)
+            ->whereNull('parent_id')
+            ->with(['children' => function ($query) {
+                $query->where('is_active', true)->with(['children' => function($q) {
+                    $q->where('is_active', true);
+                }]);
+            }]) // Eager load active children and grandchildren
+            ->orderBy('name')
+            ->get();
+
+
+        //$genders = ['Male', 'Female', 'Unisex'];
+
+        //  FETCH BRANDS FOR FILTER 
         $brandsForFilter = Brand::where('is_active', true)
                                 ->whereHas('products', fn($q) => $q->where('is_active', true)) // Only show brands with active products
                                 ->withCount(['products' => fn($q) => $q->where('is_active', true)]) // Count only active products
                                 ->orderBy('name')
                                 ->get(['id', 'name', 'slug']);
 
-        // --- Filtering by Price Range ---
+        //  Filtering by Price Range 
         if ($request->filled('price_min')) {
             $query->where('price', '>=', (float)$request->input('price_min'));
         }
@@ -95,7 +109,7 @@ class ProductController extends Controller
             $query->where('price', '<=', (float)$request->input('price_max'));
         }
 
-        // --- Filtering by Discount Percentage ---
+        //  Filtering by Discount Percentage 
         if ($request->filled('discount_min')) {
             $minDiscount = (int)$request->input('discount_min');
             if ($minDiscount > 0) {
@@ -106,10 +120,35 @@ class ProductController extends Controller
             }
         }
 
+        // Filtering by Product Rating 
+        if ($request->filled('rating_min')) {
+            $minRating = (int) $request->input('rating_min');
+            if ($minRating > 0) {
+                // We filter products that HAVE an average rating greater than or equal to the minimum.
+                // The `has('approvedReviews')` ensures we don't include products with no reviews.
+                $query->whereHas('approvedReviews', function (Builder $query) use ($minRating) {
+                    $query->select(DB::raw('avg(rating)'))
+                        ->groupBy('product_id')
+                        ->havingRaw('avg(rating) >= ?', [$minRating]);
+                });
+            }
+        }
+
         // --- Other Filters (Example: Shipped From) ---
         // if ($request->filled('shipped_from')) {
         //     $query->where('shipping_origin', $request->input('shipped_from')); // Example field
 
+        
+        $activeFilters = [
+            'category' => $request->input('category'),
+            'brands' => $request->input('brands', []), 
+            'price_min' => $request->input('price_min'),
+            'price_max' => $request->input('price_max'),
+            'discount_min' => $request->input('discount_min'),
+            'rating_min' => $request->input('rating_min'), 
+            //'gender' => $request->input('gender'), 
+            // Add any other active filters here to pass to the view
+        ];
 
         // --- Sorting ---
         $sortOrder = $request->input('sort', 'latest');
@@ -155,15 +194,19 @@ class ProductController extends Controller
             ]);
         }
 
-         return view('products.index', compact(
-            'products',
-            'filterCategories',
-            'brands', 
-            'activeCategory',
-            'sortOrder',
-            'userWishlistProductIds',
-            'breadcrumbs'
-        ));
+         return view('products.index', [
+            'products' => $products,
+            'filterCategories' => $filterCategories, // You can probably remove this and just use navCategories for both
+            'brands' => $brandsForFilter, // Changed to use the more complete brands list
+            'activeCategory' => $activeCategory,
+            'sortOrder' => $sortOrder,
+            'userWishlistProductIds' => $userWishlistProductIds,
+            'breadcrumbs' => $breadcrumbs,
+            // New variables for the mobile filter
+            'navCategories' => $navCategories,
+            //'genders' => $genders,
+            'activeFilters' => $activeFilters,
+        ]);
     }
 
    public function show(Product $product)

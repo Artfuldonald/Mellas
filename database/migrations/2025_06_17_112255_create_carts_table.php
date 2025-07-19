@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('carts', function (Blueprint $table) {
             $table->id();
-            $table->string('session_id')->nullable()->index();
+            $table->string('session_id')->nullable();
             $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade');
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
             $table->foreignId('variant_id')->nullable()->constrained('product_variants')->onDelete('cascade');
@@ -22,9 +22,16 @@ return new class extends Migration
             $table->json('variant_data')->nullable(); 
             $table->timestamps();
             
-            
+            // Unique constraints (prevent duplicate cart items)
             $table->unique(['session_id', 'product_id', 'variant_id'], 'cart_session_product_variant_unique');
             $table->unique(['user_id', 'product_id', 'variant_id'], 'cart_user_product_variant_unique');
+            
+            // Performance indexes for fast lookups
+            $table->index('session_id', 'carts_session_id_index');
+            $table->index('user_id', 'carts_user_id_index');
+            $table->index(['user_id', 'product_id'], 'carts_user_product_index');
+            $table->index(['session_id', 'product_id'], 'carts_session_product_index');
+            $table->index('created_at', 'carts_created_at_index'); // For cleanup tasks
         });
     }
 

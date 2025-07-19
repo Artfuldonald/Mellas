@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\ShippingZoneController;
 use App\Http\Controllers\Webhook\MtnMomoWebhookController;
 use App\Http\Controllers\ReviewController as ClientReviewController;
 use App\Http\Controllers\ProductController as PublicProductController;
+use App\Http\Controllers\OrderController as ClientOrderController;
 use App\Services\MtnMomo\CollectionClient;
 
 // Public Routes
@@ -62,47 +63,66 @@ Route::prefix('cart')->name('cart.')->group(function () {
     Route::post('/remove-simple', [CartController::class, 'removeSimpleProduct'])->name('remove-simple');   
     Route::post('/set-quantity', [CartController::class, 'setQuantity'])->name('set-quantity');
 });
-// Checkout & Order Routes
-Route::middleware(['auth'])->group(function () {
 
-    // --- MAIN CHECKOUT FLOW ---  
-    Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');    
-    Route::post('/checkout/process', [CheckoutController::class, 'process'])->name('checkout.process');
-    Route::get('/checkout/payment', [CheckoutController::class, 'showPaymentPage'])->name('checkout.payment.show');
-    
+// Checkout Routes
+Route::middleware('auth')->prefix('checkout')->name('checkout.')->group(function () {
 
-    // --- ADDRESS MANAGEMENT DURING CHECKOUT ---   
-    Route::get('/checkout/addresses', [CheckoutController::class, 'showAddresses'])->name('checkout.addresses.show');    
-    Route::get('/checkout/addresses/create', [CheckoutController::class, 'createAddress'])->name('checkout.addresses.create');    
-    Route::post('/checkout/addresses', [CheckoutController::class, 'storeAddress'])->name('checkout.addresses.store');   
-    Route::post('/checkout/addresses/select', [CheckoutController::class, 'selectAddress'])->name('checkout.addresses.select');
-    Route::get('/checkout/addresses/{address}/edit', [CheckoutController::class, 'edit'])->name('checkout.addresses.edit');
-    Route::put('/checkout/addresses/{address}', [CheckoutController::class, 'update'])->name('checkout.addresses.update');    
-    Route::post('/checkout/payment-method/select', [CheckoutController::class, 'selectPaymentMethod'])->name('checkout.payment.select');
+     Route::get('/', [CheckoutController::class, 'index'])->name('index');
+     Route::post('/process', [CheckoutController::class, 'process'])->name('process');
+     Route::get('/payment', [CheckoutController::class, 'showPaymentPage'])->name('payment.show');    
+
+     // --- ADDRESS MANAGEMENT DURING CHECKOUT ---   
+    Route::get('/addresses', [CheckoutController::class, 'showAddresses'])->name('addresses.show');
+    Route::post('/addresses/select', [CheckoutController::class, 'selectAddress'])->name('addresses.select');
+    Route::get('/addresses/create', [CheckoutController::class, 'createAddress'])->name('addresses.create');
+    Route::post('/addresses', [CheckoutController::class, 'storeAddress'])->name('addresses.store');
+    Route::get('/addresses/{address}/edit', [CheckoutController::class, 'editAddress'])->name('addresses.edit');
+    Route::put('/addresses/{address}', [CheckoutController::class, 'updateAddress'])->name('addresses.update');   
     
-    Route::get('/checkout/processing/{order}', [CheckoutController::class, 'showProcessingPage'])
-    ->name('checkout.processing')->middleware('auth');
-    Route::get('/checkout/status/{order}', [CheckoutController::class, 'checkPaymentStatus'])
-    ->name('checkout.status')->middleware('auth');
+    Route::post('/payment-method/select', [CheckoutController::class, 'selectPaymentMethod'])->name('payment.select');
+
+    Route::get('/processing/{order}', [CheckoutController::class, 'showProcessingPage'])
+    ->name('processing')->middleware('auth');
+    Route::get('/status/{order}', [CheckoutController::class, 'checkPaymentStatus'])
+    ->name('status')->middleware('auth');
 
     // --- POST-CHECKOUT & PAYMENT STATUS --- 
-    Route::get('/checkout/success/{order}', [CheckoutController::class, 'success'])->name('checkout.success');    
-    Route::get('/checkout/cancel', [CheckoutController::class, 'cancel'])->name('checkout.cancel');   
-    Route::get('/checkout/status/{order}', [CheckoutController::class, 'checkPaymentStatus'])->name('checkout.payment.status');
-    
-    Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');   
-    Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
+    Route::get('/success/{order}', [CheckoutController::class, 'success'])->name('success');    
+    Route::get('/cancel', [CheckoutController::class, 'cancel'])->name('cancel');   
+    Route::get('/status/{order}', [CheckoutController::class, 'checkPaymentStatus'])->name('payment.status');
+
+});    
+
+//Order Routes
+Route::middleware(['auth'])->group(function () {   
+
+    Route::get('/orders', [ClientOrderController::class, 'index'])->name('orders.index');   
+    Route::get('/orders/{order}', [ClientOrderController::class, 'show'])->name('orders.show');
+    Route::get('/profile/orders', [ClientOrderController::class, 'index'])->name('profile.orders.index');
+
 });
 
 // --- MTN MOMO Webhook Route ---
 Route::post('/webhooks/mtn-momo', [MtnMomoWebhookController::class, 'handle'])
      ->name('webhooks.mtn-momo');
     
-     
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+// --- Profile Management ---
+Route::middleware('auth')->prefix('profile')->name('profile.')->group(function () {
+    Route::get('/overview', [ProfileController::class, 'overview'])->name('overview');
+    Route::get('/edit', [ProfileController::class, 'edit'])->name('edit');
+    Route::patch('/update', [ProfileController::class, 'update'])->name('update');
+    Route::delete('/destroy', [ProfileController::class, 'destroy'])->name('destroy');
+    
+    // These routes will handle address management from the "My Account" section.
+    Route::get('/addresses', [CheckoutController::class, 'showAddresses'])->name('addresses.show');
+    Route::get('/addresses/create', [CheckoutController::class, 'createAddress'])->name('addresses.create');
+    Route::post('/addresses', [CheckoutController::class, 'storeAddress'])->name('addresses.store');
+    Route::get('/addresses/{address}/edit', [CheckoutController::class, 'editAddress'])->name('addresses.edit');
+    Route::put('/addresses/{address}', [CheckoutController::class, 'updateAddress'])->name('addresses.update');    
+    
+    Route::get('/inbox', function () {
+        return view('profile.inbox');
+    })->name('inbox');
 });
 
 // Admin Dashboard Routes

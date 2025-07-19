@@ -86,37 +86,92 @@
                     <h2 class="text-lg font-semibold text-pink-600">Menu</h2>
                     <button @click="open = false; document.body.style.overflow = '';" class="p-1 text-gray-500 hover:text-pink-600"><x-heroicon-o-x-mark class="w-6 h-6"/></button>
                 </div>
-                <nav class="flex-grow p-4 space-y-2">
-                    @guest
-                        <a href="{{ route('login') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign In</a>
-                        <a href="{{ route('register') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Create Account</a>
-                    @else
-                        <div class="px-3 py-2 text-sm text-gray-500 border-b border-gray-200 mb-2">Hello, {{ Str::words(Auth::user()->name, 1, '') }}</div>
-                        <a href="{{ Auth::user()->is_admin ? route('admin.dashboard') : route('profile.edit') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">My Account</a>
-                        <form method="POST" action="{{ route('logout') }}" onsubmit="return confirm('Are you sure?');">@csrf<button type="submit" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign Out</button></form>
-                    @endguest
-                    <div class="pt-4 border-t mt-2">
-                        <a href="#" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Help Center</a>
+                <nav class="flex-grow p-2">
+                @guest
+                    <div class="space-y-1">
+                        <a href="{{ route('login') }}" class="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Sign In</a>
+                        <a href="{{ route('register') }}" class="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">Create Account</a>
                     </div>
-                </nav>
+                @else
+                    <div class="space-y-1">
+                        {{-- User Greeting --}}
+                        <div class="px-3 py-2">
+                            <p class="text-sm font-semibold text-gray-800">Hello, {{ Str::words(Auth::user()->name, 1, '') }}</p>
+                            <p class="text-xs text-gray-500">{{ Auth::user()->email }}</p>
+                        </div>
+                        
+                        <hr class="mx-2 my-2">
+                        
+                        {{-- Main Account Links --}}
+                        <a href="{{ route('profile.overview') }}" class="flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('profile.overview') ? 'bg-pink-50 text-pink-700' : 'text-gray-700 hover:bg-pink-50 hover:text-pink-600' }}">
+                            <x-heroicon-o-user class="w-6 h-6 mr-3 text-gray-400"/>
+                            <span>My Account</span>
+                        </a>
+                        <a href="{{ route('profile.orders.index') }}" class="flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('profile.orders.*') ? 'bg-pink-50 text-pink-700' : 'text-gray-700 hover:bg-pink-50 hover:text-pink-600' }}">
+                            <x-heroicon-o-shopping-bag class="w-6 h-6 mr-3 text-gray-400"/>
+                            <span>Orders</span>
+                        </a>
+                        <a href="{{ route('profile.inbox') }}" class="flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('profile.inbox') ? 'bg-pink-50 text-pink-700' : 'text-gray-700 hover:bg-pink-50 hover:text-pink-600' }}">
+                            <x-heroicon-o-inbox class="w-6 h-6 mr-3 text-gray-400"/>
+                            <span>Inbox</span>
+                        </a>
+                        <a href="{{ route('wishlist.index') }}" class="flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('wishlist.index') ? 'bg-pink-50 text-pink-700' : 'text-gray-700 hover:bg-pink-50 hover:text-pink-600' }}">
+                            <x-heroicon-o-heart class="w-6 h-6 mr-3 text-gray-400"/>
+                            <span>Wishlist</span>
+                        </a>
+
+                        {{-- Divider and Header for Settings --}}
+                        <div class="pt-4 pb-2 px-3">
+                            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Account Settings</h3>
+                        </div>
+
+                        {{-- Account Settings Links --}}
+                        <a href="{{ route('profile.edit') }}" class="flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('profile.edit') ? 'bg-pink-50 text-pink-700' : 'text-gray-700 hover:bg-pink-50 hover:text-pink-600' }}">
+                            <x-heroicon-o-user-circle class="w-6 h-6 mr-3 text-gray-400"/>
+                            <span>Profile Details</span>
+                        </a>
+                        <a href="{{ route('profile.addresses.show') }}" class="flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('profile.addresses.*') ? 'bg-pink-50 text-pink-700' : 'text-gray-700 hover:bg-pink-50 hover:text-pink-600' }}">
+                            <x-heroicon-o-book-open class="w-6 h-6 mr-3 text-gray-400"/>
+                            <span>Address Book</span>
+                        </a>
+                        
+                        {{-- Sign Out --}}
+                        <div class="pt-4">
+                            <form method="POST" action="{{ route('logout') }}" onsubmit="return confirm('Are you sure?');"> 
+                                @csrf 
+                                <button type="submit" class="w-full flex items-center text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">
+                                    <x-heroicon-o-arrow-left-on-rectangle class="w-6 h-6 mr-3 text-gray-400"/>
+                                    <span>Sign Out</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                @endguest
+
+                {{-- Help Center (separated) --}}
+                <div class="pt-4 border-t mt-4">
+                    <a href="#" class="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50">
+                        <x-heroicon-o-question-mark-circle class="w-6 h-6 mr-3 text-gray-400"/>
+                        <span>Help Center</span>
+                    </a>
+                </div>
+            </nav>
+                </div>
             </div>
-        </div>
 
         <x-toast-notifications />
     </div>
 
-        @stack('modals')
-        @stack('scripts')
-       
-        <script>
-             window.addEventListener('pageshow', function (event) {
-                // `event.persisted` is true if the page was restored from the bfcache.
-                if (event.persisted) {
-                    console.log('Page restored from bfcache. Dispatching refresh event.');
-                    // Dispatch a custom event that our Alpine components can listen for.
-                    window.dispatchEvent(new CustomEvent('page-restored-from-cache'));
-                }
-            });
+    @stack('modals')
+    @stack('scripts')
+        
+<script>
+        // --- BROWSER BACK/FORWARD CACHE FIX ---
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                window.dispatchEvent(new CustomEvent('page-restored-from-cache'));
+            }
+        });
             
             // Alpine.js component for the Amazon-style category sidebar            
             if (typeof window.amazonCategorySidebar === 'undefined') {
@@ -348,7 +403,7 @@
 
                             if (ok) {
                                 if (data.cart_count !== undefined) {
-                                    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count } }));
+                                    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_count: data.cart_count } }));
                                 }
                             } else {
                                 // On failure, you could add logic to revert the quantity here if desired
@@ -375,7 +430,7 @@
                                 this.quantity = 0; // Visually reset to the 'Add to Cart' state
                                 window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'success', message: 'Item removed from cart.' }}));
                                 if (data.cart_count !== undefined) {
-                                    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count } }));
+                                    window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_count: data.cart_count } }));
                                 }
                             }
                         })
@@ -601,7 +656,7 @@
                                 }));
                                 if (data.cart_count !== undefined) {
                                     window.dispatchEvent(new CustomEvent('cart-updated', { 
-                                        detail: { count: data.cart_count } 
+                                        detail: { cart_count: data.cart_count } 
                                     }));
                                 }
                             } else {
@@ -647,14 +702,64 @@
                     prev() {
                         this.$refs.slider.scrollBy({ left: -this.$refs.slider.clientWidth * 0.8, behavior: 'smooth' });
                     }
-                }));                     
+                }));    
+                
+                // 6. Price Slider Component 
+                Alpine.data('priceSlider', (config) => ({
+    minPrice: config.currentMin,
+    maxPrice: config.currentMax,
+    
+    init() {
+        const slider = this.$refs.slider;
+
+        noUiSlider.create(slider, {
+            start: [this.minPrice, this.maxPrice],
+            connect: true,
+            step: 1, // Correct step for smooth sliding
+            range: {
+                'min': [config.min],
+                'max': [config.max]
+            }
+        });
+
+        // --- THIS IS THE KEY LOGIC ---
+        // 'slide' event: Fires continuously while dragging.
+        // We use this for a smooth VISUAL update of the inputs.
+        slider.noUiSlider.on('slide', (values) => {
+            // By directly setting the .value of the inputs, we DO NOT trigger
+            // the x-model binding or the $watch functions. This prevents the laggy loop.
+            this.$refs.minInput.value = parseInt(values[0]);
+            this.$refs.maxInput.value = parseInt(values[1]);
+        });
+
+        // 'change' event: Fires only when the user RELEASES the handle.
+        // We use this to update our actual Alpine data model (`minPrice`, `maxPrice`).
+        slider.noUiSlider.on('change', (values) => {
+            this.minPrice = parseInt(values[0]);
+            this.maxPrice = parseInt(values[1]);
+        });
+        
+        // --- WATCHERS FOR TYPING IN THE INPUTS ---
+        // This allows the user to type a number and have the slider update.
+        // This does not interfere with the sliding action.
+        this.$watch('minPrice', (value) => {
+            slider.noUiSlider.set([value, null]);
+        });
+
+        this.$watch('maxPrice', (value) => {
+            slider.noUiSlider.set([null, value]);
+       
+                        });
+                    }
+                }));
             
-               // Update the cart-updated event listener to work with session-based cart
-                window.addEventListener('cart-updated', (event) => {
-                    // Update cart count in header if needed
+               
+                // Update the cart-updated event listener to work with session-based cart
+               window.addEventListener('cart-updated', (event) => {
                     const cartCountElement = document.querySelector('[data-cart-count]');
-                    if (cartCountElement && event.detail.cart_distinct_items_count !== undefined) {
-                        cartCountElement.textContent = event.detail.cart_distinct_items_count;
+                    const cartCount = event.detail.count ?? event.detail.cart_count ?? event.detail.cart_distinct_items_count ?? null;
+                    if (cartCountElement && cartCount !== null) {
+                        cartCountElement.textContent = cartCount;
                     }
                 });
 

@@ -57,4 +57,30 @@ class ProfileController extends Controller
 
         return Redirect::to('/');
     }
+
+    public function overview(Request $request)
+    {
+        $user = $request->user();
+
+        // Find the default address. If none is set, get the most recent one as a fallback.
+        $defaultAddress = $user->addresses()->where('is_default', true)->first()
+            ?? $user->addresses()->latest()->first();
+
+        return view('profile.overview', [
+            'user' => $user,
+            'defaultAddress' => $defaultAddress, 
+        ]);
+    }
+
+    /**
+     * Display the user's address book.
+     */
+    public function addressBook(Request $request)
+    {
+        // In the future, you will fetch all saved addresses here.
+        // For now, we just need the view.
+        return view('profile.address-book', [
+            'user' => $request->user(),
+        ]);
+    }
 }

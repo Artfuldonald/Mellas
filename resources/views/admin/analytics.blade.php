@@ -2,8 +2,7 @@
     <div class="flex-1 space-y-4 p-8 pt-6">
         <div class="flex items-center justify-between space-y-2">
             <h2 class="text-3xl font-bold tracking-tight">Analytics</h2>
-            <div class="flex items-center space-x-2">
-                <x-date-range-picker></x-date-range-picker>
+            <div class="flex items-center space-x-2">              
                 <x-button variant="primary">
                     <x-icon name="download" class="h-4 w-4 mr-2"></x-icon>
                     Export Data

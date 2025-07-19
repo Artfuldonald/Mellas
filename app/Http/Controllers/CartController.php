@@ -6,33 +6,32 @@ use App\Models\Cart;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use App\Services\CartService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
 class CartController extends Controller
 {
     protected $cartService;
 
-    // Inject the service via the constructor
     public function __construct(CartService $cartService)
     {
         $this->cartService = $cartService;
     }
 
-    // This now just calls the service
-    private function getCartState(): array
+    // This method is for your API route and is correct
+    public function getCount()
     {
-        return $this->cartService->getCartState();
+        return response()->json(['count' => $this->cartService->getCartCount()]);
     }
 
+    // This method is for the full cart page and is correct
     public function index()
     {
-        $cartState = $this->getCartState();        
-       
+        $cartState = $this->cartService->getCartState();
         if (request()->wantsJson()) {
             return response()->json($cartState);
         }
-        
-         return view('cart.index', [
+        return view('cart.index', [
             'cartItems' => $cartState['items'],
             'subtotal'  => $cartState['totals']['subtotal'],
             'tax'       => $cartState['totals']['tax'],
@@ -42,8 +41,7 @@ class CartController extends Controller
     }
 
     /**
-     * Add or set the quantity of a product/variant in the cart.
-     * This single method can handle adding to cart and updating quantity via steppers.
+     * Add or update an item in the cart.
      */
     public function add(Request $request)
     {
@@ -53,152 +51,129 @@ class CartController extends Controller
             'quantity'   => 'required|integer|min:1',
         ]);
 
-        $product = Product::with('variants')->findOrFail($validated['product_id']);
-        $variant = null;
-        $price = $product->price;
-        $stock = $product->quantity;
-        $variantDataForCart = null; 
+        try {
+            $product = Product::select(['id', 'name', 'price', 'quantity'])
+                ->with(['variants:id,product_id,name,price,quantity'])
+                ->findOrFail($validated['product_id']);
+                
+            $variant = null;
+            $price = $product->price;
+            $stock = $product->quantity;
+            $variantDataForCart = null; 
 
-        // If a variant is specified, use its details
-        if ($request->filled('variant_id')) {
-
-            $variant = $product->variants()->find($validated['variant_id']);
-            
-            if (!$variant) {
-                return response()->json(['success' => false, 'message' => 'Variant not found.'], 404);
+            if ($request->filled('variant_id')) {
+                $variant = $product->variants->find($validated['variant_id']);
+                if (!$variant) { return response()->json(['success' => false, 'message' => 'Variant not found.'], 404); }
+                $price = $variant->price;
+                $stock = $variant->quantity;
+                $variantDataForCart = ['display_name' => $variant->name];
             }
-            $price = $variant->price;
-            $stock = $variant->quantity;
-            $variantDataForCart = ['display_name' => $variant->name];
+
+            if ($validated['quantity'] > $stock) {
+                return response()->json(['success' => false, 'message' => 'Not enough items in stock.'], 422);
+            }
+                    
+            $itemIdentifiers = ['product_id' => $product->id, 'variant_id' => $variant->id ?? null];
+            $userOrSession = Auth::check() ? ['user_id' => Auth::id()] : ['session_id' => session()->getId()];
+
+            Cart::updateOrCreate(
+                array_merge($userOrSession, $itemIdentifiers),
+                ['quantity' => $validated['quantity'], 'price_at_add' => $price, 'variant_data' => $variantDataForCart]
+            );
+
+            return response()->json([
+                'success'    => true,
+                'message'    => $product->name . ' added to cart!',
+                'cart_count' => $this->cartService->getCartCount(),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error adding product to cart: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Could not add item to cart.'], 500);
         }
-
-        // Server-side stock check
-        if ($validated['quantity'] > $stock) {
-            return response()->json(['success' => false, 'message' => 'Not enough items in stock.'], 422);
-        }
-        
-        // Define the unique properties for the cart item
-        $itemIdentifiers = [
-            'product_id' => $product->id, 
-            'variant_id' => $variant->id ?? null
-        ];
-        
-        // Get the correct key for a user or a guest
-        $userOrSession = Auth::check() 
-            ? ['user_id' => Auth::id()] 
-            : ['session_id' => session()->getId()];
-
-        // Find or create the cart item and SET its quantity
-        Cart::updateOrCreate(
-            array_merge($userOrSession, $itemIdentifiers),
-            [
-                'quantity' => $validated['quantity'],
-                'price_at_add' => $price,
-                'variant_data' => $variantDataForCart
-            ]
-        );
-
-        return response()->json([
-            'success'    => true,
-            'message'    => 'Cart updated successfully.',
-            'cart_count' => $this->getCartState()['item_count'],
-        ]);
     }
-    
+        
     /**
-     * Update the quantity of a specific item in the cart via AJAX.
-     * This method is for the routes used by the new cart page.
+     * Update an item's quantity in the cart.
      */
     public function updateItem(Request $request)
     {
         $validated = $request->validate([
             'cart_id'  => 'required|integer|exists:carts,id',
-            'quantity' => 'required|integer|min:1|max:10',
+            'quantity' => 'required|integer|min:1|max:99', // Set a reasonable max
         ]);
 
-        $cartItem = Cart::findOrFail($validated['cart_id']);
-        $this->authorize('update', $cartItem); // Using Laravel Policies is recommended
+        try {
+            $cartItem = Cart::with(['product:id,quantity', 'variant:id,quantity'])->findOrFail($validated['cart_id']);
+            $this->authorize('update', $cartItem);
 
-        $stockToCheck = $cartItem->variant ? $cartItem->variant->quantity : $cartItem->product->quantity;
-        if ($validated['quantity'] > $stockToCheck) {
-            return response()->json(['success' => false, 'message' => 'Insufficient stock available.'], 422);
+            $stockToCheck = $cartItem->variant ? $cartItem->variant->quantity : $cartItem->product->quantity;
+            if ($validated['quantity'] > $stockToCheck) {
+                return response()->json(['success' => false, 'message' => 'Insufficient stock available.'], 422);
+            }
+
+            $cartItem->update(['quantity' => $validated['quantity']]);
+            
+            // Return a simple success response with the new count
+            return response()->json([
+                'success'     => true,
+                'message'     => 'Cart quantity updated!',
+                'cart_count'  => $this->cartService->getCartCount(),
+                // Also return fresh totals for the cart page's Alpine component
+                'cart_totals' => $this->cartService->getCartState()['totals'],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error updating cart item {$validated['cart_id']}: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Could not update cart item.'], 500);
         }
-
-        $cartItem->update(['quantity' => $validated['quantity']]);
-
-        // Return the fresh, fully recalculated cart state for the AJAX update
-        return response()->json([
-            'success'     => true,
-            'message'     => 'Cart updated!',
-            'cart_totals' => $this->getCartState()['totals'],
-            'cart_count'  => $this->getCartState()['item_count'],
-        ]);
     }
 
     /**
-     * Remove a single item from the cart via AJAX.
+     * Remove an item from the cart.
      */
     public function removeItem(Request $request)
     {
-        $validated = $request->validate([
-            'cart_id' => 'required|integer|exists:carts,id',
-        ]);
+        $validated = $request->validate(['cart_id' => 'required|integer|exists:carts,id']);
 
-        $cartItem = Cart::findOrFail($validated['cart_id']);
+        try {
+            $cartItem = Cart::findOrFail($validated['cart_id']);
+            $this->authorize('delete', $cartItem);
+            $cartItem->delete();
 
-        $this->authorize('delete', $cartItem);
-        
-        $cartItem->delete();
+            return response()->json([
+                'success'     => true,
+                'message'     => 'Item removed from cart.',
+                'cart_count'  => $this->cartService->getCartCount(),
+                'cart_totals' => $this->cartService->getCartState()['totals'],
+            ]);
 
-        return response()->json([
-            'success'     => true,
-            'message'     => 'Item removed from cart.',
-            'cart_totals' => $this->getCartState()['totals'],
-            'cart_count'  => $this->getCartState()['item_count'],
-        ]);
+        } catch (\Exception $e) {
+            Log::error("Error removing cart item {$validated['cart_id']}: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Could not remove item from cart.'], 500);
+        }
     }
-    
+        
     /**
-     * Clear all items from the cart via AJAX.
+     * Clear all items from the user's cart.
      */
     public function clear()
     {
-         $query = Auth::check()
-            ? Cart::where('user_id', auth()->id())
-            : Cart::where('session_id', session()->getId());
-        
-        $query->delete();
-        
-        return response()->json([
-            'success'     => true,
-            'message'     => 'Your cart has been cleared.',
-            'cart_totals' => $this->getCartState()['totals'],
-            'cart_count'  => 0,
-        ]);
-    }    
-
-    public function removeSimpleProduct(Request $request)
-    {
-        $validated = $request->validate([
-            'product_id' => 'required|integer|exists:products,id',
-        ]);
-
-        $query = Auth::check()
-            ? Cart::where('user_id', auth()->id())
-            : Cart::where('session_id', session()->getId());
-
-        $cartItem = $query->where('product_id', $validated['product_id'])
-                        ->whereNull('variant_id')
-                        ->first();
-
-        if ($cartItem) {
-            $cartItem->delete();
+        try {
+            $query = Auth::check()
+                ? Cart::where('user_id', auth()->id())
+                : Cart::where('session_id', session()->getId());
+            $query->delete();
+            
+            return response()->json([
+                'success'     => true,
+                'message'     => 'Your cart has been cleared.',
+                'cart_count'  => 0,
+                'cart_totals' => $this->cartService->getCartState()['totals'], // Will be all zeros
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error clearing cart: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Could not clear the cart.'], 500);
         }
-
-        return response()->json([
-            'success'     => true,
-            'message'     => 'Item removed from cart.',
-            'cart_count'  => $this->getCartState()['item_count'],
-        ]);
-    }     
+    }
 }
