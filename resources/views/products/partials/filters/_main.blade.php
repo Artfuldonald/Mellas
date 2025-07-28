@@ -1,3 +1,4 @@
+{{-- views/products/partials/filters/_main.php --}}
 <div class="divide-y divide-gray-200">
     <!-- Category Filter Link -->
     <div @click="navigateTo('category')" class="px-4 py-3 cursor-pointer">

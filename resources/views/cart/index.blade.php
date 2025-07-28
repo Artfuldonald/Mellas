@@ -40,7 +40,7 @@
                                     <div class="flex py-3 gap-3">
                                         <div class="flex-shrink-0">
                                             <a :href="`/products/${item.product.slug}`">
-                                                <img :src="(item.product.images && item.product.images.length > 0) ? item.product.images[0].image_url : '{{ asset('images/placeholder.png') }}'"
+                                                <img :src="item.image_url"
                                                      :alt="item.product.name"
                                                      class="w-12 h-12 object-cover rounded border">
                                             </a>

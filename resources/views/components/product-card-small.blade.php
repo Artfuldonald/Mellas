@@ -6,8 +6,8 @@
 
 @php
     $name = $product->name ?? 'Product Name';
-    $imageUrl = $product->images->first()?->image_url ?? asset('images/placeholder.png');
-    $altText = $media?->name ?? $name; 
+    $imageUrl = $product->getFirstMediaUrl('default', 'card_thumbnail') ?? asset('images/placeholder.png');
+    $altText = $product->name;
     $price = (float)($product->price ?? 0);
     $compareAtPrice = (float)($product->compare_at_price ?? 0);
     $productUrl = route('products.show', $product->slug ?? $product->id);

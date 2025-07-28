@@ -153,6 +153,48 @@ class CartController extends Controller
             return response()->json(['success' => false, 'message' => 'Could not remove item from cart.'], 500);
         }
     }
+
+    /**
+     * Remove a simple product (one without variants) from the cart.
+     * This is typically used by the product card component.
+     */
+    public function removeSimpleProduct(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|integer|exists:products,id',
+        ]);
+
+        try {
+            // Build the base query to find the item for the current user/session
+            $query = Auth::check()
+                ? Cart::where('user_id', auth()->id())
+                : Cart::where('session_id', session()->getId());
+
+            // Find the specific cart item for this product, ensuring it's not a variant
+            $cartItem = $query->where('product_id', $validated['product_id'])
+                            ->whereNull('variant_id') // Crucial: only target simple products
+                            ->first();
+
+            // If an item was found, delete it
+            if ($cartItem) {
+                // We can use the existing authorization from the CartPolicy
+                $this->authorize('delete', $cartItem);
+                $cartItem->delete();
+            }
+
+            // Return a success response, even if the item wasn't found (it's a harmless request)
+            return response()->json([
+                'success'     => true,
+                'message'     => 'Item removed from cart.',
+                'cart_count'  => $this->cartService->getCartCount(),
+                'cart_totals' => $this->cartService->getCartState()['totals'],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error removing simple product from cart: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Could not remove item from cart.'], 500);
+        }
+    }
         
     /**
      * Clear all items from the user's cart.

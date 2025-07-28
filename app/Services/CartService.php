@@ -44,11 +44,11 @@ class CartService
         
     public function getCartItems(): Collection
     {
-        $query = Cart::with([
+         $query = Cart::with([
             'product:id,name,slug,quantity,compare_at_price',
-            'product.images',
+            'product.media',
             'variant:id,product_id,name,price,quantity,compare_at_price',
-            'variant.attributeValues.attribute'
+            'variant.attributeValues.attribute:id,name' // Be specific about columns
         ]);
 
         $query->where(Auth::check() ? 'user_id' : 'session_id', Auth::check() ? auth()->id() : session()->getId());
@@ -66,8 +66,8 @@ class CartService
                 $stock = $item->product->quantity;
             }
                         
-            if ($item->product && $item->product->images->isNotEmpty()) {
-                $item->image_url = $item->product->images->first()->image_url;
+            if ($item->product) {
+                $item->image_url = $item->product->getFirstMediaUrl('default', 'cart_thumbnail') ?? asset('images/placeholder.png');
             } else {
                 $item->image_url = asset('images/placeholder.png');
             }

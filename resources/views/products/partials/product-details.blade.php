@@ -4,24 +4,36 @@
     
     <!--  IMAGE GALLERY (Column 1)  -->
     <div class="lg:col-span-1">
-        <div x-data="{ mainImage: product.main_image || '{{ asset('images/placeholder.png') }}' }">
+        <div x-data="productImageGallery({ 
+                images: product.images, 
+                initialImage: product.main_image 
+             })">
+            
             <div class="aspect-square bg-white rounded-lg mb-4 border p-2 sticky top-24">
-                <img :src="mainImage" :alt="product.name" class="w-full h-full object-contain rounded-md">
+                {{-- It now uses the `currentImage` from our new component --}}
+                <img :src="currentImage" :alt="product.name" class="w-full h-full object-contain rounded-md">
             </div>
-            <div x-data="productSlider()" class="relative mt-4" x-show="product.images.length > 1">
+
+            <div class="relative mt-4" x-show="images.length > 1">
                 <button x-show="!atStart" @click="prev()" class="absolute top-1/2 -left-3 z-10 -translate-y-1/2 bg-white/80 p-1.5 rounded-full shadow-md hover:bg-white transition"><x-heroicon-o-chevron-left class="w-5 h-5 text-gray-600" /></button>
-                <div x-ref="slider" @scroll="checkScroll()" class="hide-scrollbar flex overflow-x-auto space-x-3 pb-1 scroll-smooth">
-                    <template x-for="(image, index) in product.images" :key="index">
+                
+                <div x-ref="slider" @scroll.debounce.100ms="checkScroll()" class="hide-scrollbar flex overflow-x-auto space-x-3 pb-1 scroll-smooth">
+                    <template x-for="(image, index) in images" :key="index">
                         <div class="flex-shrink-0 w-20 h-20">
-                            <button @click="mainImage = image" :class="{'ring-2 ring-pink-500': mainImage === image}" class="w-full h-full bg-gray-100 rounded-md overflow-hidden transition-all focus:outline-none border p-1">
-                                <img :src="image" class="w-full h-full object-contain">
+                            {{-- Click now sets `currentImage` to the large version --}}
+                            <button @click="currentImage = image.large_url" 
+                                    :class="{'ring-2 ring-pink-500': currentImage === image.large_url}" 
+                                    class="w-full h-full bg-gray-100 rounded-md overflow-hidden transition-all focus:outline-none border p-1">
+                                {{-- The img tag correctly shows the thumbnail version --}}
+                                <img :src="image.thumb_url" class="w-full h-full object-contain">
                             </button>
                         </div>
                     </template>
                 </div>
+
                 <button x-show="!atEnd" @click="next()" class="absolute top-1/2 -right-3 z-10 -translate-y-1/2 bg-white/80 p-1.5 rounded-full shadow-md hover:bg-white transition"><x-heroicon-o-chevron-right class="w-5 h-5 text-gray-600" /></button>
             </div>
-        </div>
+        </div>       
     </div>
 
     <!--  PRODUCT INFO & ACTIONS (Column 2)  -->
@@ -118,6 +130,38 @@
 
 @push('scripts')
 <script>
+    
+    function productImageGallery(config) {
+        return {
+            images: config.images,
+            currentImage: config.initialImage || (config.images.length > 0 ? config.images[0].large_url : '{{ asset('images/placeholder.png') }}'),
+            atStart: true,
+            atEnd: false,
+            
+            init() {
+                // Wait for Alpine to initialize and render the DOM
+                this.$nextTick(() => {
+                    this.checkScroll();
+                });
+            },
+            
+            checkScroll() {
+                const slider = this.$refs.slider;
+                if (!slider) return;
+                this.atStart = slider.scrollLeft === 0;
+                this.atEnd = Math.abs(slider.scrollWidth - slider.clientWidth - slider.scrollLeft) < 1;
+            },
+            
+            prev() {
+                this.$refs.slider.scrollBy({ left: -this.$refs.slider.clientWidth, behavior: 'smooth' });
+            },
+            
+            next() {
+                this.$refs.slider.scrollBy({ left: this.$refs.slider.clientWidth, behavior: 'smooth' });
+            }
+        }
+    }
+    
     function productSelector(config) {
     return {
         // --- State Properties ---
@@ -127,8 +171,9 @@
         quantity: 1,
         isModalOpen: false,
         isLoading: false,
-        
-        // --- Computed Properties (like Vue) ---
+
+        errorMessage: '',        
+       
         get currentPrice() {
             return this.currentVariant ? this.currentVariant.price : this.product.price;
         },
@@ -137,15 +182,21 @@
         },
         get selectionPrompt() {
             if (!this.product.has_variants) return '';
-            // Find the first attribute that hasn't been selected
+          
             for (const attribute in this.selectedOptions) {
                 if (this.selectedOptions[attribute] === null) {
                     return `Please select ${attribute}`;
                 }
             }
-            return ''; // Everything is selected
+            return ''; 
         },
-
+        isSelectionValid() {
+            if (!this.product.has_variants) {
+                return true; // Simple products are always valid
+            }
+            // Check if any option is still null
+            return Object.values(this.selectedOptions).every(v => v !== null);
+        },
         // --- Initialization ---
         init() {
             if (this.product.has_variants) {
@@ -228,6 +279,7 @@
         handleAddToCart() {
             if (!this.currentVariant) return; // Double-check
             this.isLoading = true;
+            this.errorMessage = '';
             
             let formData = new FormData();
             formData.append('product_id', this.product.id);           

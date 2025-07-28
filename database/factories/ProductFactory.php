@@ -5,11 +5,18 @@ namespace Database\Factories;
 use App\Models\Brand;
 use App\Models\Product;
 use Illuminate\Support\Str;
-use App\Models\ProductImage;
+// use App\Models\ProductImage; // This line is removed
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class ProductFactory extends Factory
 {
+    /**
+     * The name of the factory's corresponding model.
+     *
+     * @var string
+     */
+    protected $model = Product::class;
+
     public function definition(): array
     {
         $name = $this->faker->unique()->words(3, true);
@@ -30,7 +37,7 @@ class ProductFactory extends Factory
                 ['key' => 'Warranty', 'value' => $this->faker->randomElement(['1 Year', '2 Years', 'No Warranty'])],
                 ['key' => 'Model Number', 'value' => 'MDL-' . $this->faker->randomNumber(6)],
             ],
-            
+
             // --- Pricing ---
             'price' => $price,
             'compare_at_price' => $this->faker->optional(0.4)->randomFloat(2, $price + 10, $price + 100), // 40% chance of having a discount
@@ -54,18 +61,34 @@ class ProductFactory extends Factory
     }
 
     /**
-     * Configure the model factory.
-     * Use an afterCreating hook to attach images, making it reusable for all states.
+     * Configure the model factory to attach images using MediaLibrary after creation.
      */
     public function configure(): static
     {
-        return $this->afterCreating(function (Product $product) {         
-            ProductImage::factory(rand(3, 6))->create([ // Create a few more images for better gallery testing
-                'product_id' => $product->id,
-            ]);
+        return $this->afterCreating(function (Product $product) {
+            // Find the seeder images
+            $seedImagesPath = database_path('seeders/images');
+            if (!is_dir($seedImagesPath)) {
+                return; // Do nothing if the images folder doesn't exist
+            }
+            $allImages = collect(glob($seedImagesPath . '/*.{jpg,jpeg,png}', GLOB_BRACE));
+
+            if ($allImages->isEmpty()) {
+                return; // Do nothing if there are no images to attach
+            }
+
+            // Take 2-4 random images for each product, ensuring we don't request more than exist
+            $imageCount = min($allImages->count(), rand(2, 4));
+            
+            foreach ($allImages->random($imageCount) as $imagePath) {
+                // Attach the image using the new MediaLibrary way
+                $product->addMedia($imagePath)
+                        ->preservingOriginal()
+                        ->toMediaCollection('default');
+            }
         });
     }
-   
+
     /**
      * Define a state for a simple product without variants.
      */

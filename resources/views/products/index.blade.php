@@ -4,7 +4,8 @@
     <div x-data="mobileFilterManager({
         allCategories: {{ Js::from($navCategories) }},
         allBrands: {{ Js::from($brands) }},
-        activeFilters: {{ Js::from($activeFilters) }}
+        activeFilters: {{ Js::from($activeFilters) }},
+        initialResultCount: {{ $products->total() }}
     })">
         
         {{-- Include the Mobile Filter Menu (it's hidden by default) --}}
@@ -167,6 +168,10 @@
                 gender: null,
             },
 
+            resultCount: 0,
+            isCountLoading: false,
+            debounceTimer: null,
+
             // --- Init ---
             init() {
                 // Set initial filter state from the URL query params
@@ -177,8 +182,48 @@
                 this.filters.discount_min = config.activeFilters.discount_min || null;
                 this.filters.rating_min = config.activeFilters.rating_min || null;
                 this.filters.gender = config.activeFilters.gender || null;
+
+                this.$watch('filters', () => {
+                // Use a debounce to prevent spamming the API on every keystroke
+                clearTimeout(this.debounceTimer);
+                this.isCountLoading = true; // Show loader immediately
+                this.debounceTimer = setTimeout(() => {
+                    this.fetchResultCount();
+                    }, 500); // 500ms delay
+                }, { deep: true }); // 'deep' is crucial to watch nested properties
             },
 
+            async fetchResultCount() {
+                this.isCountLoading = true;
+                
+                const params = new URLSearchParams();
+                // Build query string from the filters object (same as applyFilters)
+                for (const key in this.filters) {
+                    const value = this.filters[key];
+                    if (value !== null && value !== '' && !(Array.isArray(value) && value.length === 0)) {
+                        if (Array.isArray(value)) {
+                            value.forEach(item => params.append(`${key}[]`, item));
+                        } else {
+                            params.append(key, value);
+                        }
+                    }
+                }
+
+                try {
+                    const response = await fetch(`{{ route('api.products.filter-count') }}?${params.toString()}`, {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.resultCount = data.count;
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch filter count:", error);
+                    this.resultCount = 'N/A'; // Show an error state
+                } finally {
+                    this.isCountLoading = false;
+                }
+            },
             // --- Computed Properties ---
             get currentTitle() {
                 if (this.currentView === 'category') return 'Category';

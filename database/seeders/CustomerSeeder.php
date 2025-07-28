@@ -13,7 +13,7 @@ class CustomerSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create a specific number of customer users (e.g., 50)
+        
         User::factory()
             ->count(50) // Adjust the number as needed
             ->create([

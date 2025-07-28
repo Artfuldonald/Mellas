@@ -1,3 +1,4 @@
+{{-- views/products/partials/filters/_category.php --}}
 <div>
     <!-- Breadcrumb for nested categories -->
     <div class="px-4 py-2 bg-gray-50 text-xs text-gray-500 flex items-center space-x-1" x-show="categoryDrilldownStack.length > 0">

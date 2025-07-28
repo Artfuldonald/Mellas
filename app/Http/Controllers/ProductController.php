@@ -29,14 +29,13 @@ class ProductController extends Controller
         'products.id', 'products.name', 'products.slug', 'products.price',
         'products.compare_at_price', 'products.quantity', 
         'products.brand_id', 
-        'products.created_at',
-        // 'products.is_active' // Already filtered by where clause
+        'products.created_at',        
     ];
 
         $query = Product::select($baseProductFields) 
                     ->where('products.is_active', true)
                     ->with([
-                        'images' => fn($q) => $q->select(['id', 'product_id', 'path', 'alt'])->orderBy('position')->limit(1),
+                        'media',
                         'brand:id,name,slug', // Eager load the brand
                     ])
                     ->withCount([
@@ -83,11 +82,7 @@ class ProductController extends Controller
 
         $navCategories = Category::where('is_active', true)
             ->whereNull('parent_id')
-            ->with(['children' => function ($query) {
-                $query->where('is_active', true)->with(['children' => function($q) {
-                    $q->where('is_active', true);
-                }]);
-            }]) // Eager load active children and grandchildren
+            ->with('children.children') // Eager load a few levels deep
             ->orderBy('name')
             ->get();
 
@@ -135,9 +130,7 @@ class ProductController extends Controller
         }
 
         // --- Other Filters (Example: Shipped From) ---
-        // if ($request->filled('shipped_from')) {
-        //     $query->where('shipping_origin', $request->input('shipped_from')); // Example field
-
+        
         
         $activeFilters = [
             'category' => $request->input('category'),
@@ -146,8 +139,7 @@ class ProductController extends Controller
             'price_max' => $request->input('price_max'),
             'discount_min' => $request->input('discount_min'),
             'rating_min' => $request->input('rating_min'), 
-            //'gender' => $request->input('gender'), 
-            // Add any other active filters here to pass to the view
+            //'gender' => $request->input('gender'),            
         ];
 
         // --- Sorting ---
@@ -209,12 +201,61 @@ class ProductController extends Controller
         ]);
     }
 
+    private function applyFiltersToQuery(Request $request, Builder $query): Builder
+    {
+        if ($request->filled('brands') && is_array($request->input('brands'))) {
+            $query->whereHas('brand', fn($q) => $q->whereIn('slug', $request->input('brands'))->where('is_active', true));
+        }
+        if ($request->filled('category')) {
+            $query->whereHas('categories', fn($q) => $q->where('slug', $request->input('category')));
+        }
+        if ($request->filled('price_min')) {
+            $query->where('price', '>=', (float)$request->input('price_min'));
+        }
+        if ($request->filled('price_max')) {
+            $query->where('price', '<=', (float)$request->input('price_max'));
+        }
+        if ($request->filled('discount_min')) {
+            $minDiscount = (int)$request->input('discount_min');
+            if ($minDiscount > 0) {
+                 $query->whereNotNull('products.compare_at_price')->where('products.compare_at_price', '>', 0)
+                      ->whereColumn('products.compare_at_price', '>', 'products.price')
+                      ->whereRaw('((products.compare_at_price - price) * 100.0 / products.compare_at_price) >= ?', [$minDiscount]);
+            }
+        }
+        if ($request->filled('rating_min')) {
+            $minRating = (int) $request->input('rating_min');
+            if ($minRating > 0) {
+                $query->whereHas('approvedReviews', function (Builder $q) use ($minRating) {
+                    $q->select(DB::raw('avg(rating)'))->groupBy('product_id')->havingRaw('avg(rating) >= ?', [$minRating]);
+                });
+            }
+        }
+        // Add any other filters (like gender) here in the future
+        
+        return $query;
+    }
+
+    // ***** NEW: API method to return only the count *****
+    public function getFilterCount(Request $request)
+    {
+        $query = Product::query()->where('is_active', true);
+
+        // Use our reusable filter method
+        $query = $this->applyFiltersToQuery($request, $query);
+
+        // Get the count and return it
+        $count = $query->count();
+
+        return response()->json(['count' => $count]);
+    }
+
    public function show(Product $product)
     {
         if (!$product->is_active) { abort(404); }
      
         $product->load([
-            'images', 
+            'media', 
             'brand', 
             'variants.attributeValues.attribute',
             'attributes.values', 
@@ -320,6 +361,18 @@ class ProductController extends Controller
             ? $product->variants()->where('is_active', true)->where('quantity', '>', 0)->exists()
             : $product->quantity > 0;
 
+
+        $mediaItems = $product->getMedia('default');
+
+        $imageGallery = $mediaItems->map(function ($media) {
+            return [
+                'thumb_url' => $media->getUrl('gallery_thumbnail'), // <-- Use new name
+                'large_url' => $media->getUrl('gallery_main'),      // <-- Use new name
+            ];
+        })->all();
+
+        $mainImageUrl = $mediaItems->first()?->getUrl('gallery_main') ?? asset('images/placeholder.png');
+
         return [
             'id' => $product->id,
             'name' => $product->name,
@@ -332,8 +385,8 @@ class ProductController extends Controller
             'in_stock' => $inStock,
             'stock_count' => (int)$totalStock,
             'has_variants' => $hasVariants,
-            'images' => $product->images->pluck('image_url')->all(),
-            'main_image' => $product->images->first()?->image_url ?? asset('images/placeholder.png'),
+            'images' => $imageGallery, 
+            'main_image' => $mainImageUrl,
             'description' => $product->description,
             'features' => json_decode($product->features, true) ?? [],
             'specifications' => (array)$product->specifications,
@@ -353,7 +406,7 @@ class ProductController extends Controller
 
         $withCardData = function (Builder $query) {
             return $query->with([
-                'images' => fn($q) => $q->orderBy('position')->limit(1),
+                'media',
                 'brand:id,name,slug',
             ])
             ->withCount(['approvedReviews as reviews_count'])

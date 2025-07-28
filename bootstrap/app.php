@@ -25,7 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth' => \Illuminate\Auth\Middleware\Authenticate::class,
             'guest' => \Illuminate\Auth\Middleware\RedirectIfAuthenticated::class,
             'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,            
-            'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,            
+            'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,                        
          ]);
 
          $middleware->redirectGuestsTo(fn () => route('login'));

@@ -8,8 +8,11 @@
     use Illuminate\Support\Str;
 
     $name = $product->name ?? 'Product Name';
+
     $productUrl = route('products.show', $product->slug ?? $product->id);
-    $imageUrl = $product->images->first()?->image_url ?? asset('images/placeholder.png');
+
+    $imageUrl = $product->getFirstMediaUrl('default', 'card_thumbnail') ?? 'https://placehold.net/400x400.png';
+    
     $price = (float)($product->price ?? 0);
     $compareAtPrice = (float)($product->compare_at_price ?? 0);
     $variantsCount = $product->variants_count ?? 0;
@@ -34,7 +37,7 @@
 <div class="bg-white rounded-md shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col overflow-hidden group border border-gray-200 hover:border-pink-300 text-sm">
     <div class="relative">
         <a href="{{ $productUrl }}" class="block aspect-[4/3] sm:aspect-square bg-gray-50 overflow-hidden">
-            <img src="{{ $imageUrl }}" alt="{{ $name }}" class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105">
+            <img src="{{ $imageUrl }}" alt="{{ $name }}" class="w-full h-full object-contain transition-transform duration-300 ">
         </a>
         @if($discountPercentage > 0)
              <span class="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">-{{ $discountPercentage }}%</span>

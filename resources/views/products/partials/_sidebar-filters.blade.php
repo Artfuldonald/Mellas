@@ -36,7 +36,7 @@
         </div>
         <ul class="space-y-0.5 text-xs max-h-48 overflow-y-auto custom-scrollbar-mobile pr-1">
             @forelse($brands as $brand)
-                <li x-show="searchBrand === '' || '{{ strtolower($brand->name) }}'.includes(searchBrand.toLowerCase())">
+                <li x-show="searchBrand === '' || $el.textContent.toLowerCase().includes(searchBrand.toLowerCase())">
                     <label class="flex items-center space-x-2 text-gray-600 hover:text-pink-700 cursor-pointer py-1 px-1 rounded hover:bg-pink-50">
                         <input type="checkbox" name="brands[]" value="{{ $brand->slug }}"
                                 form="filterForm" onchange="document.getElementById('filterForm').submit()"

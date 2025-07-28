@@ -706,52 +706,52 @@
                 
                 // 6. Price Slider Component 
                 Alpine.data('priceSlider', (config) => ({
-    minPrice: config.currentMin,
-    maxPrice: config.currentMax,
-    
-    init() {
-        const slider = this.$refs.slider;
+                    minPrice: config.currentMin,
+                    maxPrice: config.currentMax,
+                    
+                    init() {
+                        const slider = this.$refs.slider;
 
-        noUiSlider.create(slider, {
-            start: [this.minPrice, this.maxPrice],
-            connect: true,
-            step: 1, // Correct step for smooth sliding
-            range: {
-                'min': [config.min],
-                'max': [config.max]
-            }
-        });
-
-        // --- THIS IS THE KEY LOGIC ---
-        // 'slide' event: Fires continuously while dragging.
-        // We use this for a smooth VISUAL update of the inputs.
-        slider.noUiSlider.on('slide', (values) => {
-            // By directly setting the .value of the inputs, we DO NOT trigger
-            // the x-model binding or the $watch functions. This prevents the laggy loop.
-            this.$refs.minInput.value = parseInt(values[0]);
-            this.$refs.maxInput.value = parseInt(values[1]);
-        });
-
-        // 'change' event: Fires only when the user RELEASES the handle.
-        // We use this to update our actual Alpine data model (`minPrice`, `maxPrice`).
-        slider.noUiSlider.on('change', (values) => {
-            this.minPrice = parseInt(values[0]);
-            this.maxPrice = parseInt(values[1]);
-        });
-        
-        // --- WATCHERS FOR TYPING IN THE INPUTS ---
-        // This allows the user to type a number and have the slider update.
-        // This does not interfere with the sliding action.
-        this.$watch('minPrice', (value) => {
-            slider.noUiSlider.set([value, null]);
-        });
-
-        this.$watch('maxPrice', (value) => {
-            slider.noUiSlider.set([null, value]);
-       
+                        noUiSlider.create(slider, {
+                            start: [this.minPrice, this.maxPrice],
+                            connect: true,
+                            step: 1, // Correct step for smooth sliding
+                            range: {
+                                'min': [config.min],
+                                'max': [config.max]
+                            }
                         });
-                    }
-                }));
+
+                        // --- THIS IS THE KEY LOGIC ---
+                        // 'slide' event: Fires continuously while dragging.
+                        // We use this for a smooth VISUAL update of the inputs.
+                        slider.noUiSlider.on('slide', (values) => {
+                            // By directly setting the .value of the inputs, we DO NOT trigger
+                            // the x-model binding or the $watch functions. This prevents the laggy loop.
+                            this.$refs.minInput.value = parseInt(values[0]);
+                            this.$refs.maxInput.value = parseInt(values[1]);
+                        });
+
+                        // 'change' event: Fires only when the user RELEASES the handle.
+                        // We use this to update our actual Alpine data model (`minPrice`, `maxPrice`).
+                        slider.noUiSlider.on('change', (values) => {
+                            this.minPrice = parseInt(values[0]);
+                            this.maxPrice = parseInt(values[1]);
+                        });
+                        
+                        // --- WATCHERS FOR TYPING IN THE INPUTS ---
+                        // This allows the user to type a number and have the slider update.
+                        // This does not interfere with the sliding action.
+                        this.$watch('minPrice', (value) => {
+                            slider.noUiSlider.set([value, null]);
+                        });
+
+                        this.$watch('maxPrice', (value) => {
+                            slider.noUiSlider.set([null, value]);
+                    
+                                        });
+                                    }
+                        }));
             
                
                 // Update the cart-updated event listener to work with session-based cart

@@ -9,11 +9,14 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute as CastsAttribute;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 
-class Product extends Model 
+class Product extends Model implements HasMedia
 {
-    use HasFactory;
+     use HasFactory, InteractsWithMedia;
 
     protected $fillable = [
         'name',
@@ -78,10 +81,10 @@ class Product extends Model
         return $this->hasMany(Review::class)->where('is_approved', true);
     }
 
-    public function images()
-    {
-        return $this->hasMany(\App\Models\ProductImage::class);
-    }
+    //public function images()
+    //{
+//return $this->hasMany(\App\Models\ProductImage::class);
+    //}
 
     public function videos()
     {
@@ -108,7 +111,7 @@ class Product extends Model
     public function scopeForCard(Builder $query): void
     {
         $query->where('is_active', true)
-            ->with(['images' => fn($i) => $i->orderBy('position')->limit(1)])
+            ->with('media')
             ->withCount('variants'); // <-- ADD THIS LINE
     }
 
@@ -147,6 +150,26 @@ class Product extends Model
                 return 0;
             }
         );
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->addMediaConversion('gallery_thumbnail')
+              ->width(72)
+              ->height(72)
+              ->sharpen(10); 
+
+        $this->addMediaConversion('gallery_main')
+              ->width(240)
+              ->height(240);
+
+        $this->addMediaConversion('cart_thumbnail')
+              ->width(72)
+              ->height(72);
+              
+        $this->addMediaConversion('card_thumbnail') 
+              ->width(150)
+              ->height(150);         
     }
     
 }

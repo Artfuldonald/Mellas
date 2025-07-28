@@ -3,6 +3,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\BrandController;
+use App\Services\MtnMomo\CollectionClient;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\WishlistController;
@@ -20,14 +21,13 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AdminBrandController;
 use App\Http\Controllers\Admin\ShippingZoneController;
 use App\Http\Controllers\Webhook\MtnMomoWebhookController;
+use App\Http\Controllers\OrderController as ClientOrderController;
 use App\Http\Controllers\ReviewController as ClientReviewController;
 use App\Http\Controllers\ProductController as PublicProductController;
-use App\Http\Controllers\OrderController as ClientOrderController;
-use App\Services\MtnMomo\CollectionClient;
 
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home'); 
-
+    
 // Product Overview Page (kept as a component)
 Route::get('/product-overview', function () {
     return view('components.product-overview');
