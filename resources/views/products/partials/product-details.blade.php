@@ -9,24 +9,22 @@
                 initialImage: product.main_image 
              })">
             
-            <div class="aspect-square bg-white rounded-lg mb-4 border p-2 sticky top-24">
-                {{-- It now uses the `currentImage` from our new component --}}
-                <img :src="currentImage" :alt="product.name" class="w-full h-full object-contain rounded-md">
+            <div class="aspect-square mb-4">
+             <img :src="currentImage" :alt="product.name" class="w-full h-full object-contain">
             </div>
 
-            <div class="relative mt-4" x-show="images.length > 1">
+           <div class="relative mt-4" x-show="images.length > 1">
                 <button x-show="!atStart" @click="prev()" class="absolute top-1/2 -left-3 z-10 -translate-y-1/2 bg-white/80 p-1.5 rounded-full shadow-md hover:bg-white transition"><x-heroicon-o-chevron-left class="w-5 h-5 text-gray-600" /></button>
                 
                 <div x-ref="slider" @scroll.debounce.100ms="checkScroll()" class="hide-scrollbar flex overflow-x-auto space-x-3 pb-1 scroll-smooth">
                     <template x-for="(image, index) in images" :key="index">
-                        <div class="flex-shrink-0 w-20 h-20">
+                        <div class="flex-shrink-0 w-20 h-20"> 
                             {{-- Click now sets `currentImage` to the large version --}}
                             <button @click="currentImage = image.large_url" 
-                                    :class="{'ring-2 ring-pink-500': currentImage === image.large_url}" 
-                                    class="w-full h-full bg-gray-100 rounded-md overflow-hidden transition-all focus:outline-none border p-1">
-                                {{-- The img tag correctly shows the thumbnail version --}}
-                                <img :src="image.thumb_url" class="w-full h-full object-contain">
-                            </button>
+                                :class="{'ring-2 ring-pink-500': currentImage === image.large_url}" 
+                                class="w-full h-full rounded-md overflow-hidden transition-all focus:outline-none hover:ring-2 hover:ring-gray-300">
+                            <img :src="image.thumb_url" class="w-full h-full object-contain">
+                        </button>
                         </div>
                     </template>
                 </div>

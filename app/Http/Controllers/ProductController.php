@@ -397,8 +397,7 @@ class ProductController extends Controller
         ];
     }
 
-    
-    private function getRelatedProducts(Product $product) {
+       private function getRelatedProducts(Product $product) {
 
         $relatedProductsLimit = 10;
         $relatedProducts = collect();

@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use Spatie\Image\Enums\Fit;
+use Spatie\MediaLibrary\HasMedia;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Spatie\MediaLibrary\InteractsWithMedia;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Casts\Attribute as CastsAttribute;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Database\Eloquent\Casts\Attribute as CastsAttribute;
 
 
 class Product extends Model implements HasMedia
@@ -152,24 +153,63 @@ class Product extends Model implements HasMedia
         );
     }
 
+    /**
+     * Defines all image conversions for the Product model.
+     * All conversions use the "Fit and Fill" method to create uniform square images.
+     */
     public function registerMediaConversions(?Media $media = null): void
-    {
-        $this->addMediaConversion('gallery_thumbnail')
-              ->width(72)
-              ->height(72)
-              ->sharpen(10); 
+    {        
+        // For the MAIN IMAGE on the product detail page (high quality)
+        $this->addMediaConversion('gallery_main')
+            ->fit(Fit::Contain, 500, 500)
+            ->background('ffffff')
+            ->quality(85)
+            ->format('webp'); // Create a WebP version
 
         $this->addMediaConversion('gallery_main')
-              ->width(240)
-              ->height(240);
+            ->fit(Fit::Contain, 500, 500)
+            ->background('ffffff')
+            ->quality(85)
+            ->format('jpg'); // Create the JPEG fallback
 
+        // For the small THUMBNAILS below the main image
+        $this->addMediaConversion('gallery_thumbnail')
+            ->fit(Fit::Contain, 100, 100)
+            ->background('ffffff')
+            ->quality(80)
+            ->format('webp');
+
+        $this->addMediaConversion('gallery_thumbnail')
+            ->fit(Fit::Contain, 100, 100)
+            ->background('ffffff')
+            ->quality(80)
+            ->format('jpg');
+
+        // For the PRODUCT CARDS on the listing page
+        $this->addMediaConversion('card_thumbnail')
+            ->fit(Fit::Contain, 400, 400)
+            ->background('ffffff')
+            ->quality(82)
+            ->format('webp');
+
+        $this->addMediaConversion('card_thumbnail')
+            ->fit(Fit::Contain, 400, 400)
+            ->background('ffffff')
+            ->quality(82)
+            ->format('jpg');
+
+        // For the small images in the SHOPPING CART
         $this->addMediaConversion('cart_thumbnail')
-              ->width(72)
-              ->height(72);
-              
-        $this->addMediaConversion('card_thumbnail') 
-              ->width(150)
-              ->height(150);         
+            ->fit(Fit::Contain, 80, 80)
+            ->background('ffffff')
+            ->quality(80)
+            ->format('webp');
+            
+        $this->addMediaConversion('cart_thumbnail')
+            ->fit(Fit::Contain, 80, 80)
+            ->background('ffffff')
+            ->quality(80)
+            ->format('jpg');
     }
     
 }
