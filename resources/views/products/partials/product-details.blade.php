@@ -1,40 +1,85 @@
-{{-- resources/views/products/partials/product-details.blade.php --}}
 {{-- This partial inherits its `productSelector` data from show.blade.php --}}
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-12">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-8">
     
-    <!--  IMAGE GALLERY (Column 1)  -->
+    <!-- IMAGE GALLERY (Column 1) -->
     <div class="lg:col-span-1">
         <div x-data="productImageGallery({ 
                 images: product.images, 
                 initialImage: product.main_image 
              })">
             
-            <div class="aspect-square mb-4">
-             <img :src="currentImage" :alt="product.name" class="w-full h-full object-contain">
+            <!-- Main Image Display for DESKTOP ONLY -->
+            <div class="aspect-square mb-4 hidden lg:block">
+                <button @click="openLightbox(currentImageOriginalUrl)" class="w-full h-full cursor-zoom-in group">
+                    <img :src="currentImage" 
+                         :alt="product.name" 
+                         class="w-full h-full object-contain"
+                         width="500" 
+                         height="500"
+                         fetchpriority="high">
+                </button>
             </div>
 
-           <div class="relative mt-4" x-show="images.length > 1">
-                <button x-show="!atStart" @click="prev()" class="absolute top-1/2 -left-3 z-10 -translate-y-1/2 bg-white/80 p-1.5 rounded-full shadow-md hover:bg-white transition"><x-heroicon-o-chevron-left class="w-5 h-5 text-gray-600" /></button>
-                
-                <div x-ref="slider" @scroll.debounce.100ms="checkScroll()" class="hide-scrollbar flex overflow-x-auto space-x-3 pb-1 scroll-smooth">
+            <!-- Main Image SLIDER for MOBILE ONLY -->
+            <div class="relative overflow-hidden lg:hidden">
+                <div x-ref="slider" @scroll.debounce.150ms="updateMobileIndex()" class="flex overflow-x-auto snap-x snap-mandatory scroll-smooth hide-scrollbar">
                     <template x-for="(image, index) in images" :key="index">
-                        <div class="flex-shrink-0 w-20 h-20"> 
-                            {{-- Click now sets `currentImage` to the large version --}}
-                            <button @click="currentImage = image.large_url" 
-                                :class="{'ring-2 ring-pink-500': currentImage === image.large_url}" 
-                                class="w-full h-full rounded-md overflow-hidden transition-all focus:outline-none hover:ring-2 hover:ring-gray-300">
-                            <img :src="image.thumb_url" class="w-full h-full object-contain">
-                        </button>
+                        <div class="flex-shrink-0 w-full aspect-square snap-center">
+                             <button @click="openLightbox(image.original_url)" class="w-full h-full cursor-zoom-in group">
+                                <img :src="image.large_url" 
+                                     :alt="`${product.name} - Image ${index + 1}`" 
+                                     class="w-full h-full object-contain"
+                                     width="500" height="500"
+                                     :fetchpriority="index === 0 ? 'high' : 'auto'"
+                                     :loading="index === 0 ? 'eager' : 'lazy'">
+                             </button>
                         </div>
                     </template>
                 </div>
 
-                <button x-show="!atEnd" @click="next()" class="absolute top-1/2 -right-3 z-10 -translate-y-1/2 bg-white/80 p-1.5 rounded-full shadow-md hover:bg-white transition"><x-heroicon-o-chevron-right class="w-5 h-5 text-gray-600" /></button>
+                <!-- Breadcrumb-style counter for mobile navigation -->
+                <div x-show="images.length > 1" 
+                     x-cloak class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center px-2 py-1 bg-black/50 rounded-full text-white text-xs font-mono">
+                    <span x-text="currentMobileIndex + 1"></span>
+                    <span class="mx-1">/</span>
+                    <span x-text="images.length"></span>
+                </div>
             </div>
+
+            <!-- DESKTOP Thumbnails -->
+            <div class="relative mt-4 hidden lg:block" x-show="images.length > 1">
+                <button x-show="!atStart" @click="prev()" class="absolute top-1/2 -left-3 z-10 -translate-y-1/2 bg-white/80 p-1.5 rounded-full shadow-md hover:bg-white transition">
+                    <x-heroicon-o-chevron-left class="w-5 h-5 text-gray-600" />
+                </button>
+                
+                <div x-ref="desktop_slider" @scroll.debounce.100ms="checkDesktopScroll()" class="hide-scrollbar flex overflow-x-auto space-x-3 pb-1 scroll-smooth">
+                    <template x-for="(image, index) in images" :key="index">
+                        <div class="flex-shrink-0 w-10 h-10">
+                            <button @click="currentImage = image.large_url" 
+                                :class="{'ring-2 ring-pink-500': currentImage === image.large_url}" 
+                                class="w-full h-full rounded-md overflow-hidden transition-all focus:outline-none hover:ring-2 hover:ring-gray-300">
+                                <img :src="image.thumb_url" class="w-full h-full object-contain">
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                <button x-show="!atEnd" @click="next()" class="absolute top-1/2 -right-3 z-10 -translate-y-1/2 bg-white/80 p-1.5 rounded-full shadow-md hover:bg-white transition">
+                    <x-heroicon-o-chevron-right class="w-5 h-5 text-gray-600" />
+                </button>
+            </div>
+
+            {{-- THE LIGHTBOX --}}        
+            <template x-teleport="body">
+                <div x-show="isLightboxOpen" x-transition @keydown.escape.window="isLightboxOpen = false" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" x-cloak>
+                    <button @click="isLightboxOpen = false" class="absolute top-4 right-4 text-white/70 hover:text-white transition"><x-heroicon-o-x-mark class="w-8 h-8"/></button>
+                    <img :src="lightboxImage" @click.away="isLightboxOpen = false" class="max-w-full max-h-full object-contain shadow-2xl rounded-lg">
+                </div>
+            </template>       
         </div>       
     </div>
 
-    <!--  PRODUCT INFO & ACTIONS (Column 2)  -->
+    <!-- PRODUCT INFO & ACTIONS (Column 2) -->
     <div class="lg:col-span-1">
         <div class="flex flex-col h-full space-y-4">
             {{-- Product Header --}}
@@ -128,177 +173,169 @@
 
 @push('scripts')
 <script>
-    
     function productImageGallery(config) {
         return {
             images: config.images,
-            currentImage: config.initialImage || (config.images.length > 0 ? config.images[0].large_url : '{{ asset('images/placeholder.png') }}'),
-            atStart: true,
+            currentImage: config.initialImage || (config.images.length > 0 ? config.images[0].large_url : ''),
+            isLightboxOpen: false,
+            lightboxImage: '',
+            currentMobileIndex: 0,
+            atStart: true, 
             atEnd: false,
-            
+
+            // A new computed property to find the original URL for the current desktop image
+            get currentImageOriginalUrl() {
+                const found = this.images.find(img => img.large_url === this.currentImage);
+                return found ? found.original_url : '';
+            },
+
             init() {
-                // Wait for Alpine to initialize and render the DOM
-                this.$nextTick(() => {
-                    this.checkScroll();
-                });
+                this.$nextTick(() => this.checkDesktopScroll());
             },
             
-            checkScroll() {
+            openLightbox(imageUrl) {
+                if (imageUrl) {
+                    this.lightboxImage = imageUrl;
+                    this.isLightboxOpen = true;
+                }
+            },
+            
+            // New, reliable method to update the mobile slide index
+            updateMobileIndex() {
                 const slider = this.$refs.slider;
+                if (!slider) return;
+                const index = Math.round(slider.scrollLeft / slider.offsetWidth);
+                this.currentMobileIndex = index;
+            },
+            
+            // --- Desktop thumbnail slider methods ---
+            checkDesktopScroll() {
+                const slider = this.$refs.desktop_slider;
                 if (!slider) return;
                 this.atStart = slider.scrollLeft === 0;
                 this.atEnd = Math.abs(slider.scrollWidth - slider.clientWidth - slider.scrollLeft) < 1;
             },
-            
             prev() {
-                this.$refs.slider.scrollBy({ left: -this.$refs.slider.clientWidth, behavior: 'smooth' });
+                this.$refs.desktop_slider.scrollBy({ left: -this.$refs.desktop_slider.clientWidth, behavior: 'smooth' });
             },
-            
             next() {
-                this.$refs.slider.scrollBy({ left: this.$refs.slider.clientWidth, behavior: 'smooth' });
+                this.$refs.desktop_slider.scrollBy({ left: this.$refs.desktop_slider.clientWidth, behavior: 'smooth' });
             }
         }
     }
     
     function productSelector(config) {
-    return {
-        // --- State Properties ---
-        product: config.product,
-        selectedOptions: {},
-        currentVariant: null, // Holds the entire data object for the selected variant
-        quantity: 1,
-        isModalOpen: false,
-        isLoading: false,
-
-        errorMessage: '',        
-       
-        get currentPrice() {
-            return this.currentVariant ? this.currentVariant.price : this.product.price;
-        },
-        get currentStock() {
-            return this.currentVariant ? this.currentVariant.stock : this.product.stock_count;
-        },
-        get selectionPrompt() {
-            if (!this.product.has_variants) return '';
-          
-            for (const attribute in this.selectedOptions) {
-                if (this.selectedOptions[attribute] === null) {
-                    return `Please select ${attribute}`;
+        return {
+            product: config.product,
+            selectedOptions: {},
+            currentVariant: null,
+            quantity: 1,
+            isModalOpen: false,
+            isLoading: false,
+            errorMessage: '',        
+        
+            get currentPrice() {
+                return this.currentVariant ? this.currentVariant.price : this.product.price;
+            },
+            get currentStock() {
+                return this.currentVariant ? this.currentVariant.stock : this.product.stock_count;
+            },
+            get selectionPrompt() {
+                if (!this.product.has_variants) return '';
+            
+                for (const attribute in this.selectedOptions) {
+                    if (this.selectedOptions[attribute] === null) {
+                        return `Please select ${attribute}`;
+                    }
                 }
-            }
-            return ''; 
-        },
-        isSelectionValid() {
-            if (!this.product.has_variants) {
-                return true; // Simple products are always valid
-            }
-            // Check if any option is still null
-            return Object.values(this.selectedOptions).every(v => v !== null);
-        },
-        // --- Initialization ---
-        init() {
-            if (this.product.has_variants) {
-                // Initialize selectedOptions with null for each attribute
-                for (const attribute in this.product.variants) {
-                    this.selectedOptions[attribute] = null;
+                return ''; 
+            },
+            isSelectionValid() {
+                if (!this.product.has_variants) {
+                    return true;
                 }
-            } else {
-                // If no variants, the "currentVariant" is just the base product
-                this.currentVariant = { stock: this.product.stock_count, price: this.product.price };
-            }
-        },
-            // Helper function to format currency
+                return Object.values(this.selectedOptions).every(v => v !== null);
+            },
+            init() {
+                if (this.product.has_variants) {
+                    for (const attribute in this.product.variants) {
+                        this.selectedOptions[attribute] = null;
+                    }
+                } else {
+                    this.currentVariant = { stock: this.product.stock_count, price: this.product.price };
+                }
+            },
             formatCurrency(amount) {
                 return new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS' }).format(amount);
             },
-            
-           selectOption(attribute, value) {
-            // If the user clicks the same option again, deselect it
-            if (this.selectedOptions[attribute] === value) {
-                this.selectedOptions[attribute] = null;
-            } else {
-                this.selectedOptions[attribute] = value;
-            }
-            this.updateCurrentVariant();
-        },
-
-        updateCurrentVariant() {
-            // If any option is not selected, reset the variant info
-            if (Object.values(this.selectedOptions).some(v => v === null)) {
-                this.currentVariant = null;
-                return;
-            }
-            
-            // Create the lookup key (e.g., "Black-XL")
-            let lookupKey = Object.values(this.selectedOptions).sort().join('-');
-            
-            // Find the variant in our new master map
-            const variant = this.product.variant_data_map[lookupKey];
-            
-            if (variant) {
-                this.currentVariant = variant;
-            } else {
-                // This combination is invalid
-                this.currentVariant = { stock: 0 }; // Set stock to 0 for invalid combos
-            }
-        },
-        
-        // This is the new "brain" for disabling buttons
-        isOptionAvailable(attribute, value) {
-            // Temporarily select the option to see what combinations it makes
-            const tempSelection = { ...this.selectedOptions, [attribute]: value };
-
-            // Check if ANY valid variant in the map can be formed with this temporary selection
-            for (const key in this.product.variant_data_map) {
-                const variantAttributes = this.product.variant_data_map[key].attributes;
-                let isMatch = true;
-                // Check if the variant's attributes match our temporary selection
-                for (const attr in tempSelection) {
-                    if (tempSelection[attr] !== null && variantAttributes[attr] !== tempSelection[attr]) {
-                        isMatch = false;
-                        break;
-                    }
+            selectOption(attribute, value) {
+                if (this.selectedOptions[attribute] === value) {
+                    this.selectedOptions[attribute] = null;
+                } else {
+                    this.selectedOptions[attribute] = value;
                 }
-                if (isMatch) return true; // Found a valid variant, so this option is possible
-            }
-            
-            return false; // No valid variant found for this potential selection
-        },
-
-        openConfirmationModal() {
-            if (!this.currentVariant) return; // Can't add if no valid variant is selected
-            if (this.quantity > this.currentVariant.stock) {
-                window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'Not enough items in stock.' }}));
-                return;
-            }
-            this.isModalOpen = true;
-        },
-
-        handleAddToCart() {
-            if (!this.currentVariant) return; // Double-check
-            this.isLoading = true;
-            this.errorMessage = '';
-            
-            let formData = new FormData();
-            formData.append('product_id', this.product.id);           
-            // We now send the specific variant_id from our currentVariant object
-            formData.append('variant_id', this.currentVariant.id); 
-            formData.append('quantity', this.quantity);
+                this.updateCurrentVariant();
+            },
+            updateCurrentVariant() {
+                if (Object.values(this.selectedOptions).some(v => v === null)) {
+                    this.currentVariant = null;
+                    return;
+                }
+                
+                let lookupKey = Object.values(this.selectedOptions).sort().join('-');
+                const variant = this.product.variant_data_map[lookupKey];
+                
+                if (variant) {
+                    this.currentVariant = variant;
+                } else {
+                    this.currentVariant = { stock: 0 };
+                }
+            },
+            isOptionAvailable(attribute, value) {
+                const tempSelection = { ...this.selectedOptions, [attribute]: value };
+                for (const key in this.product.variant_data_map) {
+                    const variantAttributes = this.product.variant_data_map[key].attributes;
+                    let isMatch = true;
+                    for (const attr in tempSelection) {
+                        if (tempSelection[attr] !== null && variantAttributes[attr] !== tempSelection[attr]) {
+                            isMatch = false;
+                            break;
+                        }
+                    }
+                    if (isMatch) return true;
+                }
+                return false;
+            },
+            openConfirmationModal() {
+                if (!this.currentVariant) return;
+                if (this.quantity > this.currentVariant.stock) {
+                    window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: 'Not enough items in stock.' }}));
+                    return;
+                }
+                this.isModalOpen = true;
+            },
+            handleAddToCart() {
+                if (!this.currentVariant) return;
+                this.isLoading = true;
+                this.errorMessage = '';
+                
+                let formData = new FormData();
+                formData.append('product_id', this.product.id);           
+                formData.append('variant_id', this.currentVariant.id); 
+                formData.append('quantity', this.quantity);
 
                 fetch('{{ route("cart.add") }}', {
                     method: 'POST',
                     headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
-                    body: formData
+                    body: JSON.stringify(Object.fromEntries(formData)) // Corrected for JSON
                 })
                 .then(res => res.json().then(data => ({ ok: res.ok, data })))
                 .then(({ ok, data }) => {
                     if (ok) {
                         this.isModalOpen = false;
                         window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'success', message: 'Added to cart!' }}));
-                        // Dispatch event to update the global cart count in your header
                         window.dispatchEvent(new CustomEvent('cart-updated', { detail: { cart_distinct_items_count: data.cart_count } }));
                     } else {
-                        // Show the error from the backend (e.g., "Not enough items in stock")
                         this.errorMessage = data.message;
                         window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: 'error', message: data.message }}));
                     }

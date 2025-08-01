@@ -6,7 +6,7 @@
 
 @php
     $name = $product->name ?? 'Product Name';
-    $imageUrl = $product->getFirstMediaUrl('default', 'card_thumbnail') ?? asset('images/placeholder.png');
+    $imageUrl = $product->getFirstMediaUrl('default', 'card_small_thumbnail') ?? asset('images/placeholder.png');
     $altText = $product->name;
     $price = (float)($product->price ?? 0);
     $compareAtPrice = (float)($product->compare_at_price ?? 0);
@@ -23,10 +23,14 @@
 @endphp
 
 <div class="bg-white rounded shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col overflow-hidden border border-gray-100 w-full h-full"> 
-       {{-- Image Section --}}
     <div class="relative">
-        <a href="{{ $productUrl }}" class="block aspect-[4/3] bg-gray-50 overflow-hidden">
-            <img src="{{ $imageUrl }}" alt="{{ $altText }}" class="w-full h-full object-contain transition-transform duration-300 hover:scale-105"> {{-- Removed group-hover here, direct hover on image --}}
+        <a href="{{ $productUrl }}" class="block aspect-square bg-gray-50 overflow-hidden">
+            <img src="{{ $imageUrl }}" 
+                 alt="{{ $altText }}" 
+                 class="w-full h-full object-contain"
+                 width="164"
+                 height="164"
+                 loading="lazy">
         </a>
 
         @if($discountPercentage > 0)

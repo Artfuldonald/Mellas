@@ -269,19 +269,33 @@ class ProductController extends Controller
         
         $productDataForView = $this->transformProductForView($product);
         
-        $breadcrumbs = [];
-        // Get the product's primary category (the first one it's associated with)
+        //BREADCRUMB DATA PREPARATION 
+        $breadcrumbsData = [];
         $primaryCategory = $product->categories->first();
 
         if ($primaryCategory) {
             $current = $primaryCategory;
-            // Loop up the chain from child to parent
+            $categoryPath = [];
             while ($current) {
-                // Add to the start of the array to build the path in the correct order
-                array_unshift($breadcrumbs, $current);
+                // Add to the start of the temporary array
+                array_unshift($categoryPath, $current);
                 $current = $current->parent;
             }
+
+            // Now convert the category objects into the simple array structure
+            foreach ($categoryPath as $category) {
+                $breadcrumbsData[] = [
+                    'name' => $category->name,
+                    'url' => route('products.index', ['category' => $category->slug])
+                ];
+            }
         }
+        // Finally, add the current product to the end of the breadcrumbs
+        $breadcrumbsData[] = [
+            'name' => Str::limit($product->name, 30), // Limit the name for display
+            'url' => route('products.show', $product->slug) // The current page
+        ];
+        //END BREADCRUMB DATA PREPARATION 
      
         $reviews = $product->approvedReviews()->with('user')->latest()->paginate(5);
         $ratingDistribution = $this->getRatingDistribution($product);
@@ -294,7 +308,7 @@ class ProductController extends Controller
             'ratingDistribution' => $ratingDistribution,
             'relatedProducts' => $relatedProducts,
             'userWishlistProductIds' => $userWishlistProductIds,
-            'breadcrumbs' => $breadcrumbs, 
+            'breadcrumbs' => $breadcrumbsData, 
         ]);
     }   
     
@@ -366,8 +380,9 @@ class ProductController extends Controller
 
         $imageGallery = $mediaItems->map(function ($media) {
             return [
-                'thumb_url' => $media->getUrl('gallery_thumbnail'), // <-- Use new name
-                'large_url' => $media->getUrl('gallery_main'),      // <-- Use new name
+                'thumb_url' => $media->getUrl('gallery_thumbnail'), 
+                'large_url' => $media->getUrl('gallery_main'),   
+                'original_url' => $media->getUrl(),   
             ];
         })->all();
 

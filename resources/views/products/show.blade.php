@@ -3,31 +3,7 @@
     {{-- Breadcrumbs Section --}}
     <div class="bg-gray-100 py-3 border-b border-gray-200">
         <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <nav class="text-xs text-gray-500" aria-label="Breadcrumb">           
-                <ol class="list-none p-0 flex flex-wrap leading-relaxed items-center">                
-                    <li class="flex items-center mr-1.5 mb-1">
-                        <a href="{{ route('home') }}" class="hover:text-pink-600">Home</a>
-                        <x-heroicon-s-chevron-right class="w-3 h-3 ml-1.5 text-gray-400"/>
-                    </li>
-                    <li class="flex items-center mr-1.5 mb-1">
-                        <a href="{{ route('products.index') }}" class="hover:text-pink-600">All Products</a>
-                    </li>
-                    @if(!empty($breadcrumbs))
-                        @foreach($breadcrumbs as $breadcrumb)
-                            <li class="flex items-center mr-1.5 mb-1">
-                                <x-heroicon-s-chevron-right class="w-3 h-3 mr-1.5 text-gray-400"/>
-                                <a href="{{ route('products.index', ['category' => $breadcrumb->slug]) }}" class="hover:text-pink-600">
-                                    {{ $breadcrumb->name }}
-                                </a>
-                            </li>
-                        @endforeach
-                    @endif
-                    <li class="flex items-center mr-1.5 mb-1">
-                        <x-heroicon-s-chevron-right class="w-3 h-3 mr-1.5 text-gray-400"/>
-                        <span class="text-gray-700 font-medium" aria-current="page">{{ Str::limit($productData['name'], 30) }}</span>
-                    </li>
-                </ol>
-            </nav>
+            <x-breadcrumbs :items="$breadcrumbs" />
         </div>
     </div>
 
@@ -46,47 +22,41 @@
             
             <hr class="my-12 border-gray-200">
 
-            <!-- SECTION 2: Description, Specifications, and Reviews in Tabs -->
+           <!-- SECTION 2: Description, Specifications, and Reviews -->
             <section class="my-12">
-                <div class="max-w-4xl mx-auto">
-                    <div x-data="{ activeTab: 'description' }" class="w-full">
-                        {{-- Tab Headers --}}
-                        <div class="flex border-b border-gray-200">
-                            <button @click="activeTab = 'description'" :class="activeTab === 'description' ? 'border-pink-500 text-pink-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="py-2 px-4 border-b-2 font-medium text-sm transition-colors focus:outline-none">
-                                Description
-                            </button>
-                            <button @click="activeTab = 'specifications'" x-show="product.specifications && Object.keys(product.specifications).length > 0" :class="activeTab === 'specifications' ? 'border-pink-500 text-pink-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="py-2 px-4 border-b-2 font-medium text-sm transition-colors focus:outline-none" style="display: none;">
-                                Specifications
-                            </button>
-                             <button @click="activeTab = 'reviews'" :class="activeTab === 'reviews' ? 'border-pink-500 text-pink-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="py-2 px-4 border-b-2 font-medium text-sm transition-colors focus:outline-none">
-                                Reviews ({{ $productData['review_count'] }})
-                            </button>
-                        </div>
-
-                        {{-- Tab Content --}}
-                        <div class="mt-6 text-sm text-gray-600 leading-relaxed">
-                            <div x-show="activeTab === 'description'" x-cloak class="prose max-w-none">
-                                <div x-html="product.description || '<p>No description available.</p>'"></div>
-                            </div>
-                            <div x-show="activeTab === 'specifications'" x-cloak style="display: none;">
-                                 <dl class="divide-y divide-gray-200">
-                                    <template x-for="spec in (Array.isArray(product.specifications) ? product.specifications : Object.entries(product.specifications).map(([key, value]) => ({key, value})))" :key="spec.key">
-                                        <div class="py-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <dt class="font-medium text-gray-800" x-text="spec.key"></dt>
-                                            <dd class="md:col-span-2" x-text="spec.value"></dd>
-                                        </div>
-                                    </template>
-                                </dl>
-                            </div>
-                             <div x-show="activeTab === 'reviews'" x-cloak style="display: none;">
-                                @include('products.partials.product-reviews', [
-                                    'product' => $productData,
-                                    'reviews' => $reviews,
-                                    'ratingDistribution' => $ratingDistribution
-                                ])
-                            </div>
+                <div class="max-w-4xl mx-auto space-y-12"> {{-- Added space-y-12 for spacing --}}
+                    
+                    {{-- Description Section --}}
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Description</h2>
+                        <div class="prose max-w-none text-sm text-gray-600 leading-relaxed">
+                            <div x-html="product.description || '<p>No description available.</p>'"></div>
                         </div>
                     </div>
+
+                    {{-- Specifications Section --}}
+                    <div x-show="product.specifications && Object.keys(product.specifications).length > 0" x-cloak>
+                        <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Specifications</h2>
+                        <dl class="divide-y divide-gray-200 text-sm">
+                            <template x-for="spec in (Array.isArray(product.specifications) ? product.specifications : Object.entries(product.specifications).map(([key, value]) => ({key, value})))" :key="spec.key">
+                                <div class="py-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <dt class="font-medium text-gray-800" x-text="spec.key"></dt>
+                                    <dd class="sm:col-span-2 text-gray-600" x-text="spec.value"></dd>
+                                </div>
+                            </template>
+                        </dl>
+                    </div>
+
+                    {{-- Reviews Section --}}
+                    <div id="reviews">
+                        <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Customer Reviews ({{ $productData['review_count'] }})</h2>
+                        @include('products.partials.product-reviews', [
+                            'product' => $productData,
+                            'reviews' => $reviews,
+                            'ratingDistribution' => $ratingDistribution
+                        ])
+                    </div>
+
                 </div>
             </section>
             

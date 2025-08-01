@@ -96,6 +96,15 @@ body {
 }
 
 /* Custom noUiSlider Styles */
-
-
 /*End Price slider on desktop nav */
+
+
+
+/*This is for the breadcrumbs slider */
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}

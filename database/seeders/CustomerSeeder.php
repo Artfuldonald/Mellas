@@ -28,6 +28,14 @@ class CustomerSeeder extends Seeder
              'email_verified_at' => now(),
         ]);
 
+         User::factory()->create([
+             'name' => 'Test Admin',
+             'email' => 'admin@example.com',
+             'password' => bcrypt('password'), // Or Hash::make('password')
+             'is_admin' => true,
+             'email_verified_at' => now(),
+        ]);
+
          $this->command->info('Customer seeder finished.');
     }
 }

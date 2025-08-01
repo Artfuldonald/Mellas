@@ -159,33 +159,33 @@ class Product extends Model implements HasMedia
      */
     public function registerMediaConversions(?Media $media = null): void
     {        
-        // For the MAIN IMAGE on the product detail page (high quality)
+        // For the MAIN IMAGE on the product detail page
         $this->addMediaConversion('gallery_main')
             ->fit(Fit::Contain, 500, 500)
             ->background('ffffff')
             ->quality(85)
-            ->format('webp'); // Create a WebP version
+            ->format('webp');
 
         $this->addMediaConversion('gallery_main')
             ->fit(Fit::Contain, 500, 500)
             ->background('ffffff')
             ->quality(85)
-            ->format('jpg'); // Create the JPEG fallback
+            ->format('jpg');
 
         // For the small THUMBNAILS below the main image
         $this->addMediaConversion('gallery_thumbnail')
-            ->fit(Fit::Contain, 100, 100)
+            ->fit(Fit::Contain, 40, 40) 
             ->background('ffffff')
-            ->quality(80)
+            ->quality(75) 
             ->format('webp');
 
         $this->addMediaConversion('gallery_thumbnail')
-            ->fit(Fit::Contain, 100, 100)
+            ->fit(Fit::Contain, 40, 40) 
             ->background('ffffff')
-            ->quality(80)
+            ->quality(75)
             ->format('jpg');
 
-        // For the PRODUCT CARDS on the listing page
+        // For the main PRODUCT CARDS on the listing page
         $this->addMediaConversion('card_thumbnail')
             ->fit(Fit::Contain, 400, 400)
             ->background('ffffff')
@@ -210,6 +210,21 @@ class Product extends Model implements HasMedia
             ->background('ffffff')
             ->quality(80)
             ->format('jpg');
+
+        // --- NEW CONVERSION FOR THE SMALL CARD ---
+        // For the product-card-small component
+        $this->addMediaConversion('card_small_thumbnail')
+            ->fit(Fit::Contain, 164, 164) // <-- NEW size as requested
+            ->background('ffffff')
+            ->quality(80)
+            ->format('webp');
+
+        $this->addMediaConversion('card_small_thumbnail')
+            ->fit(Fit::Contain, 164, 164) // <-- NEW size as requested
+            ->background('ffffff')
+            ->quality(80)
+            ->format('jpg');
+
     }
     
 }

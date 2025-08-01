@@ -34,11 +34,17 @@
     $rating = $product->approved_reviews_avg_rating ?? $product->reviews_avg_rating ?? 0;
 @endphp
 
-<div class="bg-white rounded-md shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col overflow-hidden group border border-gray-200 hover:border-pink-300 text-sm">
-    <div class="relative">
-        <a href="{{ $productUrl }}" class="block aspect-[4/3] sm:aspect-square bg-gray-50 overflow-hidden">
-            <img src="{{ $imageUrl }}" alt="{{ $name }}" class="w-full h-full object-contain transition-transform duration-300 ">
-        </a>
+<div class="relative bg-white rounded-md shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col overflow-hidden border border-gray-200 hover:border-pink-300 text-sm">    
+    <div class="relative">       
+        <div class="block aspect-square bg-gray-50 overflow-hidden">
+            <img src="{{ $imageUrl }}" 
+                 alt="{{ $name }}" 
+                 class="w-full h-full object-contain"
+                 width="400"
+                 height="400"
+                 loading="lazy">
+        </div>
+
         @if($discountPercentage > 0)
              <span class="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">-{{ $discountPercentage }}%</span>
         @endif
@@ -68,9 +74,12 @@
         </div>
     </div>
 
-    <div class="p-2.5 flex flex-col flex-grow">
-        <h3 class="text-xs font-normal text-gray-700 leading-tight mb-1 min-h-[32px] line-clamp-2">
-            <a href="{{ $productUrl }}" class="hover:text-pink-600">{{ $name }}</a>
+     <div class="p-2.5 flex flex-col flex-grow">
+        <h3 class="text-xs font-normal text-gray-700 leading-tight mb-1 min-h-[32px] line-clamp-2">            
+            <a href="{{ $productUrl }}" class="hover:text-pink-600">
+                {{ $name }}
+                <span class="absolute inset-0" aria-hidden="true"></span>
+            </a>
         </h3>
 
         <div class="mb-1"><p class="text-base font-semibold text-gray-900 inline-block">GH₵ {{ number_format($price, 2) }}</p> @if($discountPercentage > 0)<span class="text-[12px] text-gray-500 line-through ml-1.5">GH₵ {{ number_format($compareAtPrice, 2) }}</span>@endif</div>
@@ -109,7 +118,7 @@
             @endif
         </div>
 
-        <div class="mt-auto pt-1 h-9">
+        <div class="relative z-10 mt-auto pt-1 h-9">
             @if($isGenerallyAvailable)
                 @if($product->variants_count > 0)
                     <a href="{{ route('products.show', $product->slug) }}" class="block w-full text-center rounded bg-pink-600 px-2 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-pink-700 transition-colors">Select Options</a>
