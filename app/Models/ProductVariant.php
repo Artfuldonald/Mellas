@@ -20,6 +20,12 @@ class ProductVariant extends Model implements HasMedia
         'quantity',
         'is_active'
     ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'price' => 'float',
+        'quantity' => 'integer',
+    ];
     
     public function product()
     {
@@ -35,5 +41,4 @@ class ProductVariant extends Model implements HasMedia
     {
         return $this->morphMany(StockAdjustment::class, 'adjustable');
     }
-
 }

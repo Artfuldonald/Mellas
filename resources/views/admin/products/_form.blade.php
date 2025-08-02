@@ -1,5 +1,6 @@
 {{-- resources/views/admin/products/_form.blade.php --}}
 @csrf
+
 @if ($errors->any())
     <div class="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
         <h3 class="text-sm font-medium text-red-800">Please fix the following errors:</h3>
@@ -19,7 +20,7 @@
     $initialVariants = $product->exists ? $product->variants()->with('media', 'attributeValues')->get() : collect();
     $allAttributesForAlpine = $allAttributes ?? \App\Models\Attribute::with('values')->orderBy('name')->get();
     $brandsForSelect = $brandsForSelect ?? \App\Models\Brand::where('is_active', true)->orderBy('name')->get();
-
+    
     $formSpecifications = [];
     if (!empty(old('spec_keys'))) {
         foreach (old('spec_keys') as $index => $key) {
@@ -42,16 +43,17 @@
 
     {{-- Main Column (Left) --}}
     <div class="md:col-span-2 space-y-6">
-
         {{-- Basic Info Card --}}
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6 space-y-6">
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Product Information</h3>
+                
                 <div>
                     <x-input-label for="name" :value="__('Product Name')" /> <span class="text-red-500">*</span>
                     <x-text-input type="text" name="name" id="name" class="mt-1 block w-full" :value="old('name', $product->name)" required autofocus />
                     <x-input-error :messages="$errors->get('name')" class="mt-2" />
                 </div>
+
                 <div>
                     <x-input-label for="slug" :value="__('Slug')" />
                     <x-text-input type="text" name="slug" id="slug" class="mt-1 block w-full" :value="old('slug', $product->slug)" aria-describedby="slug-description"/>
@@ -59,7 +61,7 @@
                     <x-input-error :messages="$errors->get('slug')" class="mt-2" />
                 </div>
 
-                {{-- === SHORT DESCRIPTION === --}}
+                {{-- Short Description --}}
                 <div>
                     <x-input-label for="short_description" :value="__('Short Description')" />
                     <textarea id="short_description" name="short_description" rows="3"
@@ -68,7 +70,6 @@
                     <x-input-error :messages="$errors->get('short_description')" class="mt-2" />
                     <p class="mt-1 text-xs text-gray-500">A brief summary, often shown on product listings or quick views (max 500 chars).</p>
                 </div>
-                {{-- === END SHORT DESCRIPTION === --}}
 
                 <div>
                     <x-input-label for="description" :value="__('Full Description')" />
@@ -80,7 +81,7 @@
             </div>
         </div>
 
-        {{-- === SPECIFICATIONS CARD === --}}
+        {{-- Specifications Card --}}
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6 space-y-6">
                 <div class="flex justify-between items-center">
@@ -89,54 +90,79 @@
                         <x-heroicon-s-plus class="-ml-0.5 mr-1 h-4 w-4"/> Add Specification
                     </button>
                 </div>
+                
                 <div id="specifications-container" class="space-y-4">
                     <template x-for="(spec, index) in specifications.filter(s => !s.markedForDeletion)" :key="spec.clientId">
                         <div class="grid grid-cols-11 gap-x-3 items-end">
-                            <div class="col-span-5"><input type="text" :name="`spec_keys[]`" x-model="spec.key" placeholder="e.g., Material" class="mt-1 block w-full text-sm rounded-md border-gray-300 shadow-sm"></div>
-                            <div class="col-span-5"><input type="text" :name="`spec_values[]`" x-model="spec.value" placeholder="e.g., Cotton" class="mt-1 block w-full text-sm rounded-md border-gray-300 shadow-sm"></div>
-                            <div class="col-span-1"><button type="button" @click="deleteSpecification(spec.clientId)" class="p-1.5 text-red-500 hover:bg-red-50 rounded-md"><x-heroicon-o-trash class="w-4 h-4"/></button></div>
+                            <div class="col-span-5">
+                                <input type="text" :name="`spec_keys[]`" x-model="spec.key" placeholder="e.g., Material" class="mt-1 block w-full text-sm rounded-md border-gray-300 shadow-sm">
+                            </div>
+                            <div class="col-span-5">
+                                <input type="text" :name="`spec_values[]`" x-model="spec.value" placeholder="e.g., Cotton" class="mt-1 block w-full text-sm rounded-md border-gray-300 shadow-sm">
+                            </div>
+                            <div class="col-span-1">
+                                <button type="button" @click="deleteSpecification(spec.clientId)" class="p-1.5 text-red-500 hover:bg-red-50 rounded-md">
+                                    <x-heroicon-o-trash class="w-4 h-4"/>
+                                </button>
+                            </div>
                         </div>
                     </template>
                 </div>
+                
                 <div x-show="deletedSpecifications.length > 0" x-cloak class="text-sm text-yellow-700 bg-yellow-50 p-3 rounded-md">
                     <span x-text="deletedSpecifications.length"></span> item(s) will be deleted on save.
                     <button type="button" @click="undoSpecificationDeletion()" class="ml-2 font-semibold hover:underline">Undo</button>
                 </div>
+                
                 <p x-show="specifications.filter(s => !s.markedForDeletion).length === 0" class="text-sm text-gray-500 italic">No specifications added.</p>
                 <input type="hidden" name="specifications_submitted_flag" value="1">
             </div>
         </div>
-        {{-- === END SPECIFICATIONS CARD === --}}
 
         {{-- Pricing Card --}}
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6 space-y-6">
                  <h3 class="text-lg font-medium leading-6 text-gray-900">Pricing<span class="text-red-500">*</span></h3>
+                 
                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <x-input-label for="price" :value="__('Price')" /> 
-                        <div class="relative mt-1 rounded-md shadow-sm">
-                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"> <span class="text-gray-500 sm:text-sm">$</span> </div>
+                        <x-input-label for="price" :value="__('Price')" />
+                         <div class="relative mt-1 rounded-md shadow-sm">
+                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <span class="text-gray-500 sm:text-sm">$</span>
+                            </div>
                             <x-text-input type="number" name="price" id="price" step="0.01" min="0" :value="old('price', $product->price ?? '')" required class="block w-full pl-7 pr-12" placeholder="0.00"/>
-                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3"> <span class="text-gray-500 sm:text-sm">USD</span> </div>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                <span class="text-gray-500 sm:text-sm">USD</span>
+                            </div>
                         </div>
                          <x-input-error :messages="$errors->get('price')" class="mt-2" />
                     </div>
-                     <div>
+                     
+                    <div>
                         <x-input-label for="compare_at_price" :value="__('Compare-at Price')" />
                          <div class="relative mt-1 rounded-md shadow-sm">
-                             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"> <span class="text-gray-500 sm:text-sm">$</span> </div>
+                             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <span class="text-gray-500 sm:text-sm">$</span>
+                            </div>
                             <x-text-input type="number" name="compare_at_price" id="compare_at_price" step="0.01" min="0" :value="old('compare_at_price', $product->compare_at_price ?? '')" class="block w-full pl-7 pr-12" placeholder="0.00"/>
-                             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3"> <span class="text-gray-500 sm:text-sm">USD</span> </div>
+                             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                <span class="text-gray-500 sm:text-sm">USD</span>
+                            </div>
                          </div>
                         <x-input-error :messages="$errors->get('compare_at_price')" class="mt-2" />
                     </div>
-                     <div>
+                     
+                    <div>
                         <x-input-label for="cost_price" :value="__('Cost Price')" />
                          <div class="relative mt-1 rounded-md shadow-sm">
-                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"> <span class="text-gray-500 sm:text-sm">$</span> </div>
+                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <span class="text-gray-500 sm:text-sm">$</span>
+                            </div>
                             <x-text-input type="number" name="cost_price" id="cost_price" step="0.01" min="0" :value="old('cost_price', $product->cost_price ?? '')" class="block w-full pl-7 pr-12" placeholder="0.00"/>
-                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3"> <span class="text-gray-500 sm:text-sm">USD</span> </div>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                <span class="text-gray-500 sm:text-sm">USD</span>
+                            </div>
                          </div>
                         <x-input-error :messages="$errors->get('cost_price')" class="mt-2" />
                         <p class="mt-1 text-xs text-gray-500">Optional: For profit calculation.</p>
@@ -150,6 +176,7 @@
              <div class="px-4 py-5 sm:p-6 space-y-6">
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Inventory (Simple Product)</h3>
                 <p class="text-sm text-gray-500 -mt-4">Enter SKU and quantity if this product does not have variants.</p>
+                
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                     <div>
                         <x-input-label for="sku" :value="__('SKU')" />
@@ -159,13 +186,14 @@
                                ::disabled="hasVariants" />
                         <x-input-error :messages="$errors->get('sku')" class="mt-2" />
                     </div>
-                     <div>
+                     
+                    <div>
                         <x-input-label for="quantity" :value="__('Quantity')" />
                         <x-text-input type="number" name="quantity" id="quantity" min="0" step="1" :value="old('quantity', $product->quantity ?? 0)"
                                class="mt-1 block w-full"
                                ::required="!hasVariants"
                                ::disabled="hasVariants" />
-                        <x-input-error :messages="$errors->get('quantity')" class="mt-2" />                       
+                        <x-input-error :messages="$errors->get('quantity')" class="mt-2" />
                     </div>
                 </div>
             </div>
@@ -175,8 +203,8 @@
         <div class="bg-white shadow sm:rounded-lg" x-show="hasVariants" x-transition.opacity x-cloak>
             <div class="px-4 py-5 sm:p-6 space-y-6">
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Product Variants</h3>
-                
-                <!-- 1. Attribute Selection (Your original <select> element) -->
+                                
+                <!-- Attribute Selection -->
                 <div>
                     <x-input-label for="product_attributes" :value="__('Variant Attributes')" />
                     <select name="product_attributes[]" id="product_attributes" multiple x-model="selectedAttributeIds" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
@@ -185,13 +213,15 @@
                         @endforeach
                     </select>
                 </div>
-
-                <!-- 2. Attribute Value Selection (Your original design) -->
+                
+                <!-- Attribute Value Selection -->
                 <div class="space-y-4" x-show="selectedAttributeIds.length > 0" x-transition>
                      <h4 class="text-md font-medium text-gray-800 border-b pb-1">Configure Values</h4>
+                     
                      <template x-for="attributeId in selectedAttributeIds.map(id => parseInt(id))" :key="attributeId">
                         <div class="p-3 border rounded-md bg-gray-50/50">
                              <label x-text="getAttributeName(attributeId)" class="block text-sm font-medium text-gray-700 mb-2"></label>
+                             
                              <div class="flex flex-wrap gap-2">
                                 <template x-for="value in getAttributeValues(attributeId)" :key="value.id">
                                      <label class="inline-flex items-center px-3 py-1 bg-white border border-gray-300 rounded-full text-sm cursor-pointer hover:bg-gray-100 has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-300">
@@ -203,13 +233,13 @@
                          </div>
                      </template>
                 </div>
-
-                <!-- 3. Generate Variants Button (Your original design) -->
+                
+                <!-- Generate Variants Button -->
                 <div x-show="canGenerateVariants()" x-transition>
                      <button type="button" @click.prevent="generateVariants" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Generate Variants</button>
                 </div>
-
-                <!-- 4. Variants Table (Your original design, now fixed) -->
+                
+                <!-- Variants Table -->
                 <div class="mt-6" x-show="variants.length > 0 || deletedVariants.length > 0" x-transition>
                     <h4 class="text-md font-medium text-gray-800 mb-2">Generated Variants</h4>
                     <div class="overflow-x-auto border rounded-lg">
@@ -228,7 +258,10 @@
                                 <template x-for="(variant, index) in variants" :key="variant.clientId">
                                     <tr>
                                         <input type="hidden" :name="`variants[${index}][id]`" :value="variant.id">
-                                        <template x-for="valueId in variant.attributeValueIds"><input type="hidden" :name="`variants[${index}][attribute_value_ids][]`" :value="valueId"></template>
+                                        <template x-for="valueId in variant.attributeValueIds">
+                                            <input type="hidden" :name="`variants[${index}][attribute_value_ids][]`" :value="valueId">
+                                        </template>
+                                        
                                         <td class="px-4 py-3 align-top">
                                             <div class="w-24 space-y-1">
                                                 <img :src="variant.image_url || '{{ asset('images/placeholder.png') }}'" class="w-16 h-16 object-cover rounded border">
@@ -239,48 +272,59 @@
                                             </div>
                                         </td>
                                         <td class="px-4 py-3 align-top text-sm font-medium text-gray-900" x-text="getVariantName(variant.attributeValueIds)"></td>
-                                        <td class="px-4 py-3 align-top"><input type="number" :name="`variants[${index}][price]`" x-model.number="variant.price" step="0.01" required class="w-24 rounded-md border-gray-300 shadow-sm sm:text-sm"></td>
-                                        <td class="px-4 py-3 align-top"><input type="text" :name="`variants[${index}][sku]`" x-model="variant.sku" required class="w-36 rounded-md border-gray-300 shadow-sm sm:text-sm"></td>
-                                        <td class="px-4 py-3 align-top"><input type="number" :name="`variants[${index}][quantity]`" x-model.number="variant.quantity" required class="w-20 rounded-md border-gray-300 shadow-sm sm:text-sm"></td>
+                                        <td class="px-4 py-3 align-top">
+                                            <input type="number" :name="`variants[${index}][price]`" x-model.number="variant.price" step="0.01" required class="w-24 rounded-md border-gray-300 shadow-sm sm:text-sm">
+                                        </td>
+                                        <td class="px-4 py-3 align-top">
+                                            <input type="text" :name="`variants[${index}][sku]`" x-model="variant.sku" required class="w-36 rounded-md border-gray-300 shadow-sm sm:text-sm">
+                                        </td>
+                                        <td class="px-4 py-3 align-top">
+                                            <input type="number" :name="`variants[${index}][quantity]`" x-model.number="variant.quantity" required class="w-20 rounded-md border-gray-300 shadow-sm sm:text-sm">
+                                        </td>
                                         <td class="px-4 py-3 align-top text-center">
-                                            <button type="button" @click="deleteVariant(variant.clientId)" class="p-1.5 text-red-500 hover:bg-red-50 rounded-md"><x-heroicon-o-trash class="w-4 h-4"/></button>
+                                            <button type="button" @click="deleteVariant(variant.clientId)" class="p-1.5 text-red-500 hover:bg-red-50 rounded-md">
+                                                <x-heroicon-o-trash class="w-4 h-4"/>
+                                            </button>
                                         </td>
                                     </tr>
                                 </template>
                             </tbody>
                         </table>
                     </div>
-                     <div x-show="deletedVariants.length > 0" x-cloak class="mt-4 text-sm text-yellow-700 bg-yellow-50 p-3 rounded-md">
+                     
+                    <div x-show="deletedVariants.length > 0" x-cloak class="mt-4 text-sm text-yellow-700 bg-yellow-50 p-3 rounded-md">
                         <span x-text="deletedVariants.length"></span> variant(s) will be deleted on save.
                         <button type="button" @click="undoVariantDeletion()" class="ml-2 font-semibold hover:underline">Undo</button>
                     </div>
                 </div>
             </div>
         </div>
-    
-
-         {{-- Shipping Card --}}
+             
+        {{-- Shipping Card --}}
         <div class="bg-white shadow sm:rounded-lg">
              <div class="px-4 py-5 sm:p-6 space-y-6">
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Shipping</h3>
-                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                 
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                      <div>
                         <x-input-label for="weight" :value="__('Weight')" />
                         <x-text-input type="number" name="weight" id="weight" step="any" min="0" :value="old('weight', $product->weight ?? '')" class="mt-1 block w-full" />
                         <x-input-error :messages="$errors->get('weight')" class="mt-2" />
                     </div>
-                     <div>
+                     
+                    <div>
                         <x-input-label for="weight_unit" :value="__('Weight Unit')" />
                          <select id="weight_unit" name="weight_unit" class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
                             <option value="" {{ old('weight_unit', $product->weight_unit ?? '') == '' ? 'selected' : '' }}>Select Unit</option>
-                            <option value="kg" {{ old('weight_unit', $product->weight_unit ?? 'kg') == 'kg' ? 'selected' : '' }}>kg</option> {{-- Default kg --}}
+                            <option value="kg" {{ old('weight_unit', $product->weight_unit ?? 'kg') == 'kg' ? 'selected' : '' }}>kg</option>
                             <option value="g" {{ old('weight_unit', $product->weight_unit ?? '') == 'g' ? 'selected' : '' }}>g</option>
                             <option value="lb" {{ old('weight_unit', $product->weight_unit ?? '') == 'lb' ? 'selected' : '' }}>lb</option>
                             <option value="oz" {{ old('weight_unit', $product->weight_unit ?? '') == 'oz' ? 'selected' : '' }}>oz</option>
                         </select>
                         <x-input-error :messages="$errors->get('weight_unit')" class="mt-2" />
                     </div>
-                     <div>
+                     
+                    <div>
                         <x-input-label for="dimensions" :value="__('Dimensions (LxWxH)')" />
                         <x-text-input type="text" name="dimensions" id="dimensions" :value="old('dimensions', $product->dimensions ?? '')" placeholder="e.g., 10x5x2 cm" class="mt-1 block w-full"/>
                         <x-input-error :messages="$errors->get('dimensions')" class="mt-2" />
@@ -293,14 +337,16 @@
         <div class="bg-white shadow sm:rounded-lg">
              <div class="px-4 py-5 sm:p-6 space-y-6">
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Search Engine Listing Preview</h3>
-                 <p class="mt-1 text-sm text-gray-500">Add a title and description to see how this product might appear on search engines.</p>
+                 
+                <p class="mt-1 text-sm text-gray-500">Add a title and description to see how this product might appear on search engines.</p>
                 <div class="mt-4 space-y-4">
                      <div>
                         <x-input-label for="meta_title" :value="__('Meta Title')" />
                         <x-text-input type="text" name="meta_title" id="meta_title" :value="old('meta_title', $product->meta_title ?? '')" class="mt-1 block w-full" />
                         <x-input-error :messages="$errors->get('meta_title')" class="mt-2" />
                     </div>
-                     <div>
+                     
+                    <div>
                         <x-input-label for="meta_description" :value="__('Meta Description')" />
                          <textarea id="meta_description" name="meta_description" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">{{ old('meta_description', $product->meta_description ?? '') }}</textarea>
                         <x-input-error :messages="$errors->get('meta_description')" class="mt-2" />
@@ -308,28 +354,27 @@
                 </div>
             </div>
         </div>
-
     </div> {{-- End Main Column --}}
-
 
     {{-- Sidebar Column (Right) --}}
     <div class="md:col-span-1 space-y-6">
-
          {{-- Status Card --}}
         <div class="bg-white shadow sm:rounded-lg">
              <div class="px-4 py-5 sm:p-6 space-y-4">
                  <h3 class="text-lg font-medium leading-6 text-gray-900">Status</h3>
-                 <div class="relative flex items-start">
+                 
+                <div class="relative flex items-start">
                     <div class="flex h-6 items-center">
                         <input id="is_active" name="is_active" type="checkbox" value="1" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                               {{ old('is_active', $product->is_active ?? true) ? 'checked' : '' }} > {{-- Default active --}}
+                               {{ old('is_active', $product->is_active ?? true) ? 'checked' : '' }} >
                     </div>
                     <div class="ml-3 text-sm leading-6">
                         <label for="is_active" class="font-medium text-gray-900">Active</label>
                         <p class="text-gray-500">Product is visible and purchasable.</p>
                     </div>
                 </div>
-                 <div class="relative flex items-start">
+                 
+                <div class="relative flex items-start">
                     <div class="flex h-6 items-center">
                         <input id="is_featured" name="is_featured" type="checkbox" value="1" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                {{ old('is_featured', $product->is_featured ?? false) ? 'checked' : '' }} >
@@ -346,7 +391,7 @@
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6 space-y-6">
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Organization</h3>
-
+                
                 {{-- Variants Toggle --}}
                 <div class="relative flex items-start border-b pb-4 mb-4 border-dashed border-gray-200">
                    <div class="flex h-6 items-center">
@@ -360,7 +405,7 @@
                    </div>
                 </div>
 
-                {{-- === BRAND SELECTION === --}}
+                {{-- Brand Selection --}}
                 <div class="pt-4 border-t border-dashed border-gray-200">
                     <x-input-label for="brand_id" :value="__('Brand')" />
                     <select id="brand_id" name="brand_id"
@@ -375,17 +420,17 @@
                     <x-input-error :messages="$errors->get('brand_id')" class="mt-2" />
                     <a href="{{ route('admin.brands.create') }}" target="_blank" class="mt-2 inline-block text-sm text-pink-600 hover:underline">Add new brand</a>
                 </div>
-
-                 {{-- Category Selection --}}
+                 
+                {{-- Category Selection --}}
                  <div>
                      <x-input-label :value="__('Categories')" />
-                      <div class="mt-1 space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-3 bg-gray-50/50">
+                      
+                    <div class="mt-1 space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-3 bg-gray-50/50">
                         @forelse($categories as $category)
                             <div class="relative flex items-start">
                                 <div class="flex h-6 items-center">
                                     <input id="category_{{ $category->id }}" name="categories[]" type="checkbox" value="{{ $category->id }}"
                                         class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                        {{-- This line will now work safely --}}
                                         {{ in_array($category->id, $selectedCategories) ? 'checked' : '' }} >
                                 </div>
                                 <div class="ml-3 text-sm leading-6">
@@ -403,23 +448,20 @@
             </div>
         </div>
 
-        {{-- Images Card --}}        
+        {{-- Images Card --}}
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6 space-y-4">
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Images</h3>
-
-                {{--  toggle deletion status, Helper to check if an image is marked for deletion --}}
-                <div x-data="{                 
-                images: {{ Js::from($product->getMedia('default')->map(fn ($media) => ['id' => $media->id, 'url' => $media->getUrl('cart_thumbnail'), 'name' => $media->name])) }},
-                // Keep track of which IDs we've marked for deletion
-                deletedImageIds: [],                
+                
+                <div x-data="{
+                                 images: {{ Js::from($product->getMedia('default')->map(fn ($media) => ['id' => $media->id, 'url' => $media->getUrl('cart_thumbnail'), 'name' => $media->name])) }},
+                deletedImageIds: [],
+                                
                 toggleDelete(imageId) {
                     const index = this.deletedImageIds.indexOf(imageId);
                     if (index > -1) {
-                        // If it's already marked, un-mark it (remove from array)
                         this.deletedImageIds.splice(index, 1);
                     } else {
-                        // Otherwise, mark it for deletion (add to array)
                         this.deletedImageIds.push(imageId);
                     }
                 },
@@ -427,27 +469,24 @@
                     return this.deletedImageIds.includes(imageId);
                 }
             }">
-
+            
             {{-- Display Existing Images --}}
             <div x-show="images.length > 0" class="space-y-3">
                 <x-input-label :value="__('Current Images')" />
                 <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                    {{-- Loop through the Alpine `images` array --}}
                     <template x-for="image in images" :key="image.id">
                         <div class="relative group">
-                            <img :src="image.url" :alt="image.name" 
-                                 :class="{ 'opacity-30 grayscale': isDeleted(image.id) }"
+                            <img :src="image.url" :alt="image.name"
+                                  :class="{ 'opacity-30 grayscale': isDeleted(image.id) }"
                                  class="block w-full aspect-square object-cover rounded-md border transition-all">
-
-                            {{-- Hidden checkbox that is controlled by our Alpine state --}}
+                            
                             <input type="checkbox" :name="`delete_images[]`" :value="image.id" :checked="isDeleted(image.id)" class="hidden">
-
-                            {{-- Delete/Undo Button Overlay --}}
+                            
                             <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
                                 <button type="button" @click="toggleDelete(image.id)"
                                         class="hidden group-hover:inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white transition-colors"
                                         :class="isDeleted(image.id) ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'">
-                                    
+                                                                        
                                     <template x-if="!isDeleted(image.id)">
                                         <x-heroicon-o-trash class="w-4 h-4 mr-1"/>
                                     </template>
@@ -460,26 +499,28 @@
                 <p class="text-xs text-gray-500">Click an image to mark/unmark for deletion. Changes are saved on "Update Product".</p>
             </div>
 
-                {{-- Upload New Images --}}
-                <div>
-                     <x-input-label for="images" :value="$product->exists && $product->hasMedia('default') ? 'Upload Additional Images' : 'Upload Images'" />
-                    <div class="mt-1">                      
-                        <input type="file" name="images[]" id="images" multiple accept="image/*"
-                            class="block w-full text-sm text-gray-500 border border-gray-300 rounded-md cursor-pointer
-                                    file:mr-4 file:py-2 file:px-4 file:rounded-l-md file:border-0
-                                    file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700
-                                    hover:file:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" >
-                        <x-input-error :messages="$errors->get('images.*')" class="mt-2" />
-                    </div>
-                    <p class="mt-1 text-sm text-gray-500">You can select multiple images (jpg, jpeg, png, gif, webp).</p>
+            {{-- Upload New Images --}}
+            <div>
+                 <x-input-label for="images" :value="$product->exists && $product->hasMedia('default') ? 'Upload Additional Images' : 'Upload Images'" />
+                <div class="mt-1">
+                                              
+                    <input type="file" name="images[]" id="images" multiple accept="image/*"
+                        class="block w-full text-sm text-gray-500 border border-gray-300 rounded-md cursor-pointer
+                                file:mr-4 file:py-2 file:px-4 file:rounded-l-md file:border-0
+                                file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700
+                                hover:file:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" >
+                    <x-input-error :messages="$errors->get('images.*')" class="mt-2" />
                 </div>
+                <p class="mt-1 text-sm text-gray-500">You can select multiple images (jpg, jpeg, png, gif, webp).</p>
+            </div>
             </div>
         </div>
-
-         {{-- Videos Card --}}
+         
+        {{-- Videos Card --}}
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6 space-y-4">
                 <h3 class="text-lg font-medium leading-6 text-gray-900">Videos</h3>
+                
                 {{-- Display Existing Videos --}}
                 @if(isset($product) && $product->videos->isNotEmpty())
                 <div class="space-y-4">
@@ -492,8 +533,8 @@
                                        <p class="text-sm font-medium text-gray-900 truncate">{{ $video->title ?: basename($video->path) }}</p>
                                        <p class="text-sm text-gray-500 truncate">{{ $video->description ?: 'No description' }}</p>
                                    </div>
-                                    <div class="ml-4 flex-shrink-0">
-                                         {{-- Label wraps hidden checkbox for better click area --}}
+                                    
+                                   <div class="ml-4 flex-shrink-0">
                                         <label for="delete_video_{{ $video->id }}" class="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded hover:bg-red-200 cursor-pointer">
                                            <input type="checkbox" name="delete_videos[]" id="delete_video_{{ $video->id }}" value="{{ $video->id }}" class="sr-only">
                                            <x-heroicon-o-trash class="w-4 h-4" />
@@ -508,18 +549,16 @@
                     <x-input-error :messages="$errors->get('delete_videos.*')" class="mt-2" />
                 </div>
                 @endif
-
+               
                {{-- Upload New Videos Section --}}
                <div>
                    <x-input-label for="video-upload-input" class="block text-sm font-medium text-gray-700 mb-2">
                         {{ isset($product) && $product->videos->isNotEmpty() ? 'Upload Additional Videos' : 'Upload Videos' }}
                    </x-input-label>
-                   {{-- Container for dynamic video fields JS --}}
+                   
                    <div id="video-container" class="space-y-6">
-                       {{-- Initial block (template for JS) --}}
                        <div class="video-entry space-y-4 p-4 border border-dashed rounded-md">
                            <div>
-                               <label class="block text-sm font-medium text-gray-700 sr-only">Upload Video File</label>
                                <input type="file" name="videos[]" id="video-upload-input"
                                       class="block w-full text-sm text-gray-500 border border-gray-300 rounded-md cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-l-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                       accept="video/mp4,video/mov,video/avi,video/webm">
@@ -527,16 +566,13 @@
                                <p class="mt-1 text-sm text-gray-500">Accepted: MP4, MOV, AVI, WEBM.</p>
                            </div>
                            <div>
-                               <label class="block text-sm font-medium text-gray-700 sr-only">Video Title</label>
                                <x-text-input type="text" name="video_titles[]" class="mt-1 block w-full" placeholder="Video Title (Optional)" />
                                <x-input-error :messages="$errors->get('video_titles.*')" class="mt-1" />
                            </div>
                            <div>
-                               <label class="block text-sm font-medium text-gray-700 sr-only">Video Description</label>
                                <textarea name="video_descriptions[]" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" placeholder="Video Description (Optional)"></textarea>
                                <x-input-error :messages="$errors->get('video_descriptions.*')" class="mt-1" />
                            </div>
-                           {{-- JS adds remove button here --}}
                        </div>
                    </div>
                    <button type="button" id="add-video" class="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
@@ -545,12 +581,9 @@
                    </button>
                </div>
            </div>
-       </div> {{-- End Videos Card --}}
-
-    </div> {{-- End Sidebar Column --}}
-
-</div> {{-- End Grid --}}
-
+       </div>
+    </div>
+</div>
 
 {{-- Action Buttons --}}
 <div class="mt-8 pt-5 border-t border-gray-200">
@@ -559,13 +592,11 @@
             Cancel
         </a>
         <button type="submit" class="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            {{-- Check if $product exists and has an ID --}}
             {{ isset($product) && $product->exists ? 'Update Product' : 'Create Product' }}
         </button>
     </div>
 </div>
 
-{{-- dynamic elements --}}
 @push('scripts')
 <script>
     function cartesian(...args) {
@@ -585,21 +616,18 @@
         return {
              hasVariants: config.hasVariants,
             allAttributes: config.allAttributes,
-            selectedAttributeIds: config.initialSelectedAttributeIds, // Directly use the string array from PHP
+            selectedAttributeIds: config.initialSelectedAttributeIds,
             selectedValues: {},
             variants: [],
             specifications: [],
             deletedVariants: [],
             deletedSpecifications: [],
-
-            // === INITIALIZATION ===
+            
             init() {
-                // Initialize selectedValues with keys for all attributes
                 this.allAttributes.forEach(attr => {
                     this.selectedValues[String(attr.id)] = [];
                 });
-                
-                // Populate variants and selectedValues from initial server data
+                                
                 (config.initialVariants || []).forEach(v => {
                     const valueIds = (v.attribute_values || []).map(val => val.id);
                     const variantImage = v.media?.find(m => m.collection_name === 'variant_image');
@@ -616,15 +644,13 @@
                     });
                 });
 
-                // Initialize specifications
                 (config.initialSpecifications || []).forEach(s => {
                     if(s.key || s.value) {
                         this.specifications.push({ clientId: `s_${Math.random()}`, key: s.key, value: s.value });
                     }
                 });
             },
-
-            // === HELPERS ===
+            
             getAttributeName(id) { return this.allAttributes.find(a => a.id == id)?.name || ''; },
             getAttributeValues(id) { return this.allAttributes.find(a => a.id == id)?.values || []; },
             getVariantName(valueIds) {
@@ -639,14 +665,13 @@
                 if (this.selectedAttributeIds.length === 0) return false;
                 return this.selectedAttributeIds.every(id => this.selectedValues[id]?.length > 0);
             },
-            
-            // === ACTIONS ===
+                        
             generateVariants() {
                 const valueArrays = this.selectedAttributeIds.map(id => this.selectedValues[id]);
                 const combinations = cartesian(...valueArrays);
                 const allCurrentVariants = [...this.variants, ...this.deletedVariants];
                 const existingSignatures = new Set(allCurrentVariants.map(v => v.attributeValueIds.sort((a,b)=>a-b).join('-')));
-                
+                                
                 combinations.forEach(combo => {
                     const sortedCombo = [...combo].sort((a,b)=>a-b);
                     const signature = sortedCombo.join('-');
@@ -658,8 +683,7 @@
                     }
                 });
             },
-
-            // Deletion and Undo logic for variants
+            
             deleteVariant(clientId) {
                 const index = this.variants.findIndex(v => v.clientId === clientId);
                 if (index > -1) {
@@ -674,8 +698,7 @@
                     this.variants.push(this.deletedVariants.pop());
                 }
             },
-
-            // Deletion and Undo logic for specifications
+            
             addSpecification() { this.specifications.push({ clientId: `s_${Math.random()}`, key: '', value: '' }); },
             deleteSpecification(clientId) {
                 const index = this.specifications.findIndex(s => s.clientId === clientId);
@@ -691,99 +714,70 @@
             },
         };
     }
-    // End of productForm function
 
-    // Existing DOMContentLoaded listener for slug/video adder etc.
     document.addEventListener('DOMContentLoaded', function() {
-        // --- Slug Generation Helper ---
+        // Slug Generation Helper
         const nameInput = document.getElementById('name');
         const slugInput = document.getElementById('slug');
-
         if (nameInput && slugInput) {
             nameInput.addEventListener('blur', function() {
-                // Only fill slug if it's currently empty
                 if (slugInput.value === '') {
                     const slug = nameInput.value
                         .toLowerCase()
                         .trim()
-                        .replace(/\s+/g, '-')           // Replace spaces with -
-                        .replace(/[^\w\-]+/g, '')       // Remove all non-word chars except -
-                        .replace(/\-\-+/g, '-')         // Replace multiple - with single -
-                        .replace(/^-+/, '')             // Trim - from start of text
-                        .replace(/-+$/, '');            // Trim - from end of text
+                        .replace(/\s+/g, '-')
+                        .replace(/[^\w\-]+/g, '')
+                        .replace(/\-\-+/g, '-')
+                        .replace(/^-+/, '')
+                        .replace(/-+$/, '');
                     slugInput.value = slug;
                 }
             });
         }
 
-         // --- START: Dynamic Video Fields ---
-         const addVideoBtn = document.getElementById('add-video');
+        // Dynamic Video Fields
+        const addVideoBtn = document.getElementById('add-video');
         const videoContainer = document.getElementById('video-container');
-
-        // Function to handle removing a video entry
+        
         function removeVideoEntry(event) {
-            // event.target is the button clicked
-            // Find the closest parent with the 'video-entry' class and remove it
             event.target.closest('.video-entry')?.remove();
         }
 
-        // Function to create a new video entry block
         function createVideoEntry() {
-            if (!videoContainer) return; // Safety check
-
+            if (!videoContainer) return;
             const videoEntry = document.createElement('div');
-            // Add Tailwind classes for styling and spacing
             videoEntry.className = 'video-entry space-y-4 pt-6 border-t border-gray-200 mt-6 relative';
-
-            // Use innerHTML to set the structure easily
             videoEntry.innerHTML = `
                 <button type="button" class="absolute -top-3 right-0 inline-flex items-center justify-center p-1 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 remove-video" title="Remove this video entry">
                      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
                 <div>
-                    {{-- <label class="block text-sm font-medium text-gray-700 sr-only">Upload Video File</label> --}}
                     <input type="file" name="videos[]" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" accept="video/mp4,video/mov,video/avi,video/webm">
                     <p class="mt-1 text-sm text-gray-500">Accepted formats: MP4, MOV, AVI, WEBM (Max size check in controller)</p>
-                    {{-- Add @error directive if needed, though tricky for dynamic arrays --}}
                 </div>
                 <div>
-                    {{-- <label class="block text-sm font-medium text-gray-700 sr-only">Video Title</label> --}}
                     <input type="text" name="video_titles[]" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Video Title (Optional)">
-                     {{-- @error('video_titles.*') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror --}}
                 </div>
                 <div>
-                    {{-- <label class="block text-sm font-medium text-gray-700 sr-only">Video Description</label> --}}
                     <textarea name="video_descriptions[]" rows="2" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Video Description (Optional)"></textarea>
-                     {{-- @error('video_descriptions.*') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror --}}
                 </div>
             `;
             videoContainer.appendChild(videoEntry);
-
-            // Add event listener specifically to the new remove button
+            
             const removeBtn = videoEntry.querySelector('.remove-video');
             if (removeBtn) {
                 removeBtn.addEventListener('click', removeVideoEntry);
             }
         }
 
-        // Event listener for the main "Add Video" button
         if (addVideoBtn) {
             addVideoBtn.addEventListener('click', createVideoEntry);
         }
 
-        // Add event listeners to any remove buttons that might exist on page load
-        // (e.g., if the form was re-rendered after validation error with multiple entries)
-        // Use event delegation on the container for robustness if needed, but this is simpler for now.
         const existingRemoveBtns = videoContainer ? videoContainer.querySelectorAll('.remove-video') : [];
         existingRemoveBtns.forEach(btn => {
-             // Check if listener already added to prevent duplicates (though unlikely here)
-             // if (!btn.dataset.listenerAdded) {
-                btn.addEventListener('click', removeVideoEntry);
-            //     btn.dataset.listenerAdded = true;
-            // }
+             btn.addEventListener('click', removeVideoEntry);
         });
-        // --- END: Dynamic Video Fields ---
-
-    }); // End of DOMContentLoaded
+    });
 </script>
 @endpush

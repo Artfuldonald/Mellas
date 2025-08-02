@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str; // Import Str
+use Illuminate\Support\Str;
 
 class AttributeValue extends Model
 {
@@ -44,11 +44,9 @@ class AttributeValue extends Model
 
     /**
      * The product variants that belong to the attribute value.
-     * (Which specific variants use this value, e.g., which variants are 'Red')
      */
     public function productVariants()
     {
-        // Assuming you will create this pivot table later
         return $this->belongsToMany(ProductVariant::class, 'attribute_value_product_variant');
     }
 }

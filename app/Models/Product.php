@@ -14,7 +14,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Illuminate\Database\Eloquent\Casts\Attribute as CastsAttribute;
 
-
 class Product extends Model implements HasMedia
 {
      use HasFactory, InteractsWithMedia;
@@ -51,7 +50,6 @@ class Product extends Model implements HasMedia
         'dimensions' => 'array',
     ];    
     
-
     public function categories()
     {
         return $this->belongsToMany(Category::class);
@@ -82,11 +80,6 @@ class Product extends Model implements HasMedia
         return $this->hasMany(Review::class)->where('is_approved', true);
     }
 
-    //public function images()
-    //{
-//return $this->hasMany(\App\Models\ProductImage::class);
-    //}
-
     public function videos()
     {
         return $this->hasMany(ProductVideo::class);
@@ -97,13 +90,11 @@ class Product extends Model implements HasMedia
         return $this->morphMany(StockAdjustment::class, 'adjustable');
     }
 
-   
     public function getAverageRatingAttribute(): ?float
     {
         return $this->approvedReviews()->avg('rating');
     }
 
-    
     public function getApprovedReviewsCountAttribute(): int
     {
         return $this->approvedReviews()->count();
@@ -113,7 +104,7 @@ class Product extends Model implements HasMedia
     {
         $query->where('is_active', true)
             ->with('media')
-            ->withCount('variants'); // <-- ADD THIS LINE
+            ->withCount('variants');
     }
 
     protected function stockCount(): CastsAttribute
@@ -211,20 +202,17 @@ class Product extends Model implements HasMedia
             ->quality(80)
             ->format('jpg');
 
-        // --- NEW CONVERSION FOR THE SMALL CARD ---
         // For the product-card-small component
         $this->addMediaConversion('card_small_thumbnail')
-            ->fit(Fit::Contain, 164, 164) // <-- NEW size as requested
+            ->fit(Fit::Contain, 164, 164)
             ->background('ffffff')
             ->quality(80)
             ->format('webp');
 
         $this->addMediaConversion('card_small_thumbnail')
-            ->fit(Fit::Contain, 164, 164) // <-- NEW size as requested
+            ->fit(Fit::Contain, 164, 164)
             ->background('ffffff')
             ->quality(80)
             ->format('jpg');
-
     }
-    
 }
