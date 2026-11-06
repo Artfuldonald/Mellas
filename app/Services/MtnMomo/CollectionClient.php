@@ -20,14 +20,16 @@ class CollectionClient
 
     public function __construct()
     {
-        $config = config('services.mtn_momo');
-        $this->baseUrl = rtrim($config['base_url'], '/');
-        $this->environment = $config['environment'];
-        $this->currency = $config['currency'];
-        $collectionConfig = $config['collection'];
-        $this->primaryKey = $collectionConfig['primary_key'];
-        $this->userId = $collectionConfig['user_id'];
-        $this->apiKey = $collectionConfig['api_key'];
+        // Cast to string so a missing env var doesn't throw a TypeError while the
+        // container resolves this class (which would break checkout and route:list).
+        $config = config('services.mtn_momo', []);
+        $this->baseUrl = rtrim((string) ($config['base_url'] ?? ''), '/');
+        $this->environment = (string) ($config['environment'] ?? '');
+        $this->currency = (string) ($config['currency'] ?? '');
+        $collectionConfig = $config['collection'] ?? [];
+        $this->primaryKey = (string) ($collectionConfig['primary_key'] ?? '');
+        $this->userId = (string) ($collectionConfig['user_id'] ?? '');
+        $this->apiKey = (string) ($collectionConfig['api_key'] ?? '');
     }
 
     private function getAccessToken(): ?string

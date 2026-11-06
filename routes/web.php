@@ -3,7 +3,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\BrandController;
-use App\Services\MtnMomo\CollectionClient;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\WishlistController;
@@ -20,7 +19,6 @@ use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AdminBrandController;
 use App\Http\Controllers\Admin\ShippingZoneController;
-use App\Http\Controllers\Webhook\MtnMomoWebhookController;
 use App\Http\Controllers\OrderController as ClientOrderController;
 use App\Http\Controllers\ReviewController as ClientReviewController;
 use App\Http\Controllers\ProductController as PublicProductController;
@@ -50,6 +48,23 @@ Route::middleware(['auth'])->prefix('wishlist')->name('wishlist.')->group(functi
     Route::get('/', [WishlistController::class, 'index'])->name('index');   
     Route::post('/add/{product}', [WishlistController::class, 'add'])->name('add');
     Route::post('/remove/{product}', [WishlistController::class, 'remove'])->name('remove');
+});
+
+// --- Session-aware JSON endpoints ---
+// These need the session (guest cart, logged-in user), so they live in the
+// web group rather than the stateless api group. URLs keep the /api prefix.
+Route::prefix('api')->name('api.')->group(function () {
+    Route::get('/cart/count', [CartController::class, 'getCount'])->name('cart.count');
+
+    Route::middleware('auth')->group(function () {
+        Route::get('/wishlist/count', fn () => response()->json([
+            'count' => auth()->user()->wishlistItems()->count(),
+        ]))->name('wishlist.count');
+
+        Route::get('/wishlist/status/{product}', fn (\App\Models\Product $product) => response()->json([
+            'is_in_wishlist' => auth()->user()->hasInWishlist($product),
+        ]))->name('wishlist.status');
+    });
 });
 
 // Cart routes
@@ -102,9 +117,7 @@ Route::middleware(['auth'])->group(function () {
 
 });
 
-// --- MTN MOMO Webhook Route ---
-Route::post('/webhooks/mtn-momo', [MtnMomoWebhookController::class, 'handle'])
-     ->name('webhooks.mtn-momo');
+// MTN MoMo webhook lives in routes/api.php (POST /api/webhooks/momo).
     
 // --- Profile Management ---
 Route::middleware('auth')->prefix('profile')->name('profile.')->group(function () {

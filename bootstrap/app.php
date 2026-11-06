@@ -29,13 +29,6 @@ return Application::configure(basePath: dirname(__DIR__))
          ]);
 
          $middleware->redirectGuestsTo(fn () => route('login'));
-
-         // --- CONFIGURE CSRF EXCEPTIONS HERE ---
-        $middleware->validateCsrfTokens(except: [
-            '/webhooks/mtn-momo', // Add your webhook URI pattern
-            'stripe/*',          // Example: Exclude all Stripe webhooks
-            'webhooks/*',        // Example: Exclude all under /webhooks
-        ]);
        
         // This middleware will set headers to prevent caching
          $middleware->appendToGroup('web', [
